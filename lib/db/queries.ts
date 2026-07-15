@@ -1,0 +1,228 @@
+import { and, asc, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
+import { db } from "@/lib/db";
+import {
+  namespaces,
+  posts,
+  postSeries,
+  postTags,
+  series,
+  specialPages,
+  tagClosure,
+  tags,
+} from "@/lib/db/schema";
+
+// ---------- 포스트 ----------
+
+export async function listPostsForAdmin() {
+  return db
+    .select({
+      id: posts.id,
+      title: posts.title,
+      slug: posts.slug,
+      updatedAt: posts.updatedAt,
+      parseError: posts.parseError,
+    })
+    .from(posts)
+    .orderBy(desc(posts.updatedAt));
+}
+
+export async function getPostById(id: number) {
+  const [post] = await db.select().from(posts).where(eq(posts.id, id));
+  return post ?? null;
+}
+
+export async function getPostBySlug(slug: string) {
+  const [post] = await db.select().from(posts).where(eq(posts.slug, slug));
+  return post ?? null;
+}
+
+export async function getPostTagIds(postId: number): Promise<number[]> {
+  const rows = await db
+    .select({ tagId: postTags.tagId })
+    .from(postTags)
+    .where(eq(postTags.postId, postId));
+  return rows.map((r) => r.tagId);
+}
+
+export async function getPostSeriesIds(postId: number): Promise<number[]> {
+  const rows = await db
+    .select({ seriesId: postSeries.seriesId })
+    .from(postSeries)
+    .where(eq(postSeries.postId, postId));
+  return rows.map((r) => r.seriesId);
+}
+
+/**
+ * 공개 포스트 목록. SpecialPage에 배정된 포스트는 목록/RSS에서 제외
+ * (별도 플래그가 아니라 SpecialPage 존재 여부가 단일 진실 소스, 스펙 8장)
+ */
+export async function listPublicPosts() {
+  return db
+    .select({
+      id: posts.id,
+      title: posts.title,
+      slug: posts.slug,
+      createdAt: posts.createdAt,
+      updatedAt: posts.updatedAt,
+    })
+    .from(posts)
+    .where(
+      notInArray(posts.id, db.select({ id: specialPages.postId }).from(specialPages)),
+    )
+    .orderBy(desc(posts.createdAt));
+}
+
+/** LIKE 패턴 메타문자(%, _, \)를 이스케이프해 검색어를 리터럴로 취급 */
+function escapeLikePattern(s: string): string {
+  return s.replace(/[\\%_]/g, (m) => `\\${m}`);
+}
+
+/** 제목/본문 부분 일치 검색. 특수 페이지 배정 포스트는 목록과 동일하게 제외 */
+export async function searchPublicPosts(query: string) {
+  const pattern = `%${escapeLikePattern(query)}%`;
+  return db
+    .select({
+      id: posts.id,
+      title: posts.title,
+      slug: posts.slug,
+      createdAt: posts.createdAt,
+    })
+    .from(posts)
+    .where(
+      and(
+        notInArray(posts.id, db.select({ id: specialPages.postId }).from(specialPages)),
+        or(ilike(posts.title, pattern), ilike(posts.contentMd, pattern)),
+      ),
+    )
+    .orderBy(desc(posts.createdAt))
+    .limit(50);
+}
+
+// ---------- 특수 페이지 ----------
+
+export async function listSpecialPages() {
+  return db
+    .select({
+      id: specialPages.id,
+      key: specialPages.key,
+      label: specialPages.label,
+      postId: specialPages.postId,
+      postTitle: posts.title,
+    })
+    .from(specialPages)
+    .innerJoin(posts, eq(specialPages.postId, posts.id))
+    .orderBy(asc(specialPages.key));
+}
+
+export async function getSpecialPagePost(key: string) {
+  const [row] = await db
+    .select({ post: posts })
+    .from(specialPages)
+    .innerJoin(posts, eq(specialPages.postId, posts.id))
+    .where(eq(specialPages.key, key));
+  return row?.post ?? null;
+}
+
+// ---------- 태그 ----------
+
+export async function listNamespaces() {
+  return db.select().from(namespaces).orderBy(asc(namespaces.name));
+}
+
+/** 네임스페이스의 전체 태그 (트리는 parentTagId로 클라이언트/서버에서 조립) */
+export async function listTagsByNamespace(namespaceId: number) {
+  return db
+    .select()
+    .from(tags)
+    .where(eq(tags.namespaceId, namespaceId))
+    .orderBy(asc(tags.name));
+}
+
+export async function listAllTags() {
+  return db.select().from(tags).orderBy(asc(tags.name));
+}
+
+export async function getTagById(tagId: number) {
+  const [tag] = await db.select().from(tags).where(eq(tags.id, tagId));
+  return tag ?? null;
+}
+
+/**
+ * 태그에 속한 공개 포스트 조회 (스펙 5장).
+ * includeDescendants는 저장 속성이 아니라 뷰 옵션 — TagClosure로 하위 태그 전체 포함.
+ */
+export async function listPostsByTag(tagId: number, includeDescendants: boolean) {
+  const tagIdsQuery = includeDescendants
+    ? db
+        .select({ id: tagClosure.descendantId })
+        .from(tagClosure)
+        .where(eq(tagClosure.ancestorId, tagId))
+    : db.select({ id: tags.id }).from(tags).where(eq(tags.id, tagId));
+
+  return db
+    .selectDistinct({
+      id: posts.id,
+      title: posts.title,
+      slug: posts.slug,
+      createdAt: posts.createdAt,
+    })
+    .from(posts)
+    .innerJoin(postTags, eq(postTags.postId, posts.id))
+    .where(inArray(postTags.tagId, tagIdsQuery))
+    .orderBy(desc(posts.createdAt));
+}
+
+/** 태그별 포스트 수 (하위 포함). 태그 목록 페이지용 */
+export async function countPostsByTags(tagIds: number[]) {
+  if (tagIds.length === 0) return new Map<number, number>();
+  const rows = await db
+    .select({
+      ancestorId: tagClosure.ancestorId,
+      count: sql<number>`count(distinct ${postTags.postId})::int`,
+    })
+    .from(tagClosure)
+    .innerJoin(postTags, eq(postTags.tagId, tagClosure.descendantId))
+    .where(inArray(tagClosure.ancestorId, tagIds))
+    .groupBy(tagClosure.ancestorId);
+  return new Map(rows.map((r) => [r.ancestorId, r.count]));
+}
+
+// ---------- 시리즈 ----------
+
+export async function listSeries() {
+  return db.select().from(series).orderBy(asc(series.name));
+}
+
+export async function getSeriesById(id: number) {
+  const [row] = await db.select().from(series).where(eq(series.id, id));
+  return row ?? null;
+}
+
+/** 시리즈 내 포스트를 fractional order 순으로 조회 (스펙 6장) */
+export async function listSeriesPosts(seriesId: number) {
+  return db
+    .select({
+      postId: posts.id,
+      title: posts.title,
+      slug: posts.slug,
+      order: postSeries.order,
+    })
+    .from(postSeries)
+    .innerJoin(posts, eq(postSeries.postId, posts.id))
+    .where(eq(postSeries.seriesId, seriesId))
+    .orderBy(asc(postSeries.order));
+}
+
+/** 포스트가 속한 시리즈들 (뷰어의 시리즈 내비게이션용) */
+export async function listSeriesOfPost(postId: number) {
+  return db
+    .select({
+      seriesId: series.id,
+      name: series.name,
+      isCompleted: series.isCompleted,
+    })
+    .from(postSeries)
+    .innerJoin(series, eq(postSeries.seriesId, series.id))
+    .where(eq(postSeries.postId, postId))
+    .orderBy(asc(series.name));
+}
