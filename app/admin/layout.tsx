@@ -7,6 +7,7 @@ const NAV = [
   { href: "/admin/tags", label: "태그" },
   { href: "/admin/series", label: "시리즈" },
   { href: "/admin/special-pages", label: "특수 페이지" },
+  { href: "/admin/images", label: "이미지" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

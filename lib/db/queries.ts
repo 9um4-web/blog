@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
+  images,
   namespaces,
   posts,
   postSeries,
@@ -96,6 +97,22 @@ export async function searchPublicPosts(query: string) {
     )
     .orderBy(desc(posts.createdAt))
     .limit(50);
+}
+
+// ---------- 이미지 ----------
+
+/** 관리 목록용 — bytea data 컬럼은 제외하고 메타데이터만 */
+export async function listImagesForAdmin() {
+  return db
+    .select({
+      id: images.id,
+      filename: images.filename,
+      mimeType: images.mimeType,
+      size: images.size,
+      createdAt: images.createdAt,
+    })
+    .from(images)
+    .orderBy(desc(images.createdAt));
 }
 
 // ---------- 특수 페이지 ----------

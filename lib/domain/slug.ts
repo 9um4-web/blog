@@ -12,6 +12,7 @@ export const SYSTEM_RESERVED_SLUGS = [
   "rss",
   "feed",
   "posts",
+  "images",
 ] as const;
 
 export const SLUG_MAX_LENGTH = 100;

@@ -1,5 +1,6 @@
 import {
   boolean,
+  customType,
   integer,
   jsonb,
   pgTable,
@@ -102,6 +103,24 @@ export const postSeries = pgTable(
   // PK가 UNIQUE(post_id, series_id) 역할을 겸함
   (t) => [primaryKey({ columns: [t.postId, t.seriesId] })],
 );
+
+const bytea = customType<{ data: Buffer }>({
+  dataType() {
+    return "bytea";
+  },
+});
+
+export const images = pgTable("image", {
+  id: serial("id").primaryKey(),
+  // URL 경로에 쓰이므로 업로드 시 안전한 문자로 정규화해서 저장
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  // 스펙의 DB 기반 저장 철학에 맞춰 본문과 동일하게 Postgres에 보관
+  // (별도 볼륨 불필요, pg_dump 하나로 백업 일원화)
+  data: bytea("data").notNull(),
+  size: integer("size").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const specialPages = pgTable("special_page", {
   id: serial("id").primaryKey(),

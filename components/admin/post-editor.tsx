@@ -7,6 +7,7 @@ import { savePost } from "@/lib/actions/posts";
 import { setPostTags } from "@/lib/actions/tags";
 import { syncPostSeries } from "@/lib/actions/series";
 import { buildTagTree, type TagTreeNode } from "@/lib/domain/tag-tree";
+import { ImageUploader } from "@/components/admin/image-uploader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -155,7 +156,21 @@ export function PostEditor({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="content">본문 (마크다운, 본문 헤딩은 h2부터)</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="content">본문 (마크다운, 본문 헤딩은 h2부터)</Label>
+          <ImageUploader
+            onUploaded={(markdown) => {
+              // 커서 위치에 삽입, 포커스가 없었다면 끝에 덧붙임
+              const textarea = document.getElementById("content") as HTMLTextAreaElement | null;
+              setContentMd((prev) => {
+                if (!textarea) return `${prev}\n\n${markdown}\n`;
+                const start = textarea.selectionStart ?? prev.length;
+                const end = textarea.selectionEnd ?? start;
+                return prev.slice(0, start) + markdown + prev.slice(end);
+              });
+            }}
+          />
+        </div>
         <Textarea
           id="content"
           value={contentMd}
