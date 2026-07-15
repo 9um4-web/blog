@@ -15,9 +15,14 @@ export interface LoginState {
 }
 
 async function clientKey(): Promise<string> {
-  // 리버스 프록시 뒤에서는 x-forwarded-for의 첫 IP, 없으면 단일 버킷
+  // Cloudflare(Tunnel/proxy) 뒤에서는 cf-connecting-ip가 위조 불가능한 실제 클라이언트 IP.
+  // 없으면 x-forwarded-for의 첫 IP, 그마저 없으면 단일 버킷으로 폴백.
   const h = await headers();
-  return h.get("x-forwarded-for")?.split(",")[0]?.trim() || "direct";
+  return (
+    h.get("cf-connecting-ip") ??
+    h.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    "direct"
+  );
 }
 
 export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {
