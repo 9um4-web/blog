@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Docker 배포용 최소 런타임 출력
+  output: "standalone",
 };
 
 export default nextConfig;
