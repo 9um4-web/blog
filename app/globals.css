@@ -76,6 +76,75 @@
   overflow-x: auto;
 }
 
+/* 인라인 코드: typography 플러그인이 ::before/::after로 그려 넣는 백틱 문자 제거 */
+.post-body code::before,
+.post-body code::after {
+  content: none;
+}
+
+/* 다크모드: shiki 듀얼 테마 색상 전환 (인라인 스타일을 이겨야 하므로 !important) */
+.dark .post-body pre.shiki span {
+  color: var(--shiki-dark, inherit) !important;
+}
+
+/* ---------- 유튜브 임베드 (::youtube[영상ID]) ---------- */
+
+.post-body .video-embed {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  margin-block: 1.5rem;
+}
+
+.post-body .video-embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 2px);
+}
+
+/* ---------- 콜아웃 (:::note ~ :::) ---------- */
+
+.post-body .callout {
+  border: 1px solid var(--callout-color, var(--border));
+  border-left-width: 4px;
+  border-radius: calc(var(--radius) + 2px);
+  background: color-mix(in oklab, var(--callout-color, transparent) 7%, transparent);
+  padding: 0.75rem 1rem;
+  margin-block: 1.25rem;
+}
+
+.post-body .callout > :last-child {
+  margin-bottom: 0;
+}
+
+.post-body .callout > :nth-child(2) {
+  margin-top: 0.375rem;
+}
+
+.post-body .callout-title {
+  font-weight: 600;
+  color: var(--callout-color, var(--foreground));
+}
+
+.post-body .callout-note,
+.post-body .callout-info {
+  --callout-color: #3b82f6;
+}
+
+.post-body .callout-tip {
+  --callout-color: #10b981;
+}
+
+.post-body .callout-warning {
+  --callout-color: #f59e0b;
+}
+
+.post-body .callout-danger {
+  --callout-color: #ef4444;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

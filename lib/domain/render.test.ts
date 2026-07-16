@@ -93,4 +93,37 @@ describe("renderPostHtml", () => {
     const html = await renderPostHtml("![x](javascript:alert(1))");
     expect(html).not.toContain("javascript:");
   });
+
+  it("::youtube[영상ID]를 youtube-nocookie iframe으로 변환한다", async () => {
+    const html = await renderPostHtml("::youtube[dQw4w9WgXcQ]");
+    expect(html).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"');
+    expect(html).toContain("<iframe");
+    expect(html).toContain("video-embed");
+  });
+
+  it("잘못된 유튜브 ID는 iframe을 만들지 않는다", async () => {
+    const html = await renderPostHtml("::youtube[ab]");
+    expect(html).not.toContain("<iframe");
+    expect(html).toContain("잘못된 영상 ID");
+  });
+
+  it(":::note 콜아웃을 기본 제목과 함께 렌더한다", async () => {
+    const html = await renderPostHtml(":::note\n내용 문단입니다.\n:::");
+    expect(html).toContain('class="callout callout-note"');
+    expect(html).toContain('class="callout-title"');
+    expect(html).toContain("노트");
+    expect(html).toContain("내용 문단입니다.");
+  });
+
+  it(":::warning[커스텀 제목] 라벨을 제목으로 쓴다", async () => {
+    const html = await renderPostHtml(":::warning[조심하세요!]\n위험한 내용.\n:::");
+    expect(html).toContain("callout-warning");
+    expect(html).toContain("조심하세요!");
+    expect(html).not.toContain(">주의<"); // 기본 제목으로 대체되지 않음
+  });
+
+  it("알 수 없는 디렉티브는 조용히 무시된다", async () => {
+    const html = await renderPostHtml("본문\n\n::unknown[x]");
+    expect(html).toContain("본문");
+  });
 });

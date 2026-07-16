@@ -1,5 +1,6 @@
 import GithubSlugger from "github-slugger";
 import rehypeStringify from "rehype-stringify";
+import remarkDirective from "remark-directive";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
@@ -7,6 +8,7 @@ import { createHighlighter, type Highlighter } from "shiki";
 import { unified } from "unified";
 import { visit } from "unist-util-visit";
 import type { Element, ElementContent, Root, RootContent } from "hast";
+import type { Root as MdastRoot } from "mdast";
 
 const HEADING_TAGS = new Set(["h2", "h3", "h4", "h5", "h6"]);
 
@@ -94,6 +96,110 @@ function rehypeSectionWrap() {
   return (tree: Root) => wrapSections(tree);
 }
 
+// ---------- 커스텀 디렉티브: ::youtube[영상ID], :::note ~ ::: (콜아웃) ----------
+
+const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{6,20}$/;
+
+/** 콜아웃 종류 → 기본 제목 */
+const CALLOUT_TYPES: Record<string, string> = {
+  note: "노트",
+  info: "정보",
+  tip: "팁",
+  warning: "주의",
+  danger: "위험",
+};
+
+interface DirectiveNode {
+  type: "leafDirective" | "containerDirective" | "textDirective";
+  name: string;
+  attributes?: Record<string, string | null | undefined>;
+  children: Array<{ type: string; value?: string; data?: unknown; children?: unknown[] }>;
+  data?: {
+    hName?: string;
+    hProperties?: Record<string, unknown>;
+    hChildren?: unknown[];
+  };
+}
+
+function youtubeEmbed(node: DirectiveNode): void {
+  // ::youtube[dQw4w9WgXcQ] 또는 ::youtube{id=dQw4w9WgXcQ}
+  const label = node.children
+    .map((c) => (c.type === "text" ? (c.value ?? "") : ""))
+    .join("")
+    .trim();
+  const id = node.attributes?.id ?? label;
+
+  if (!id || !YOUTUBE_ID_PATTERN.test(id)) {
+    node.data = {
+      hName: "p",
+      hChildren: [{ type: "text", value: "[youtube: 잘못된 영상 ID]" }],
+    };
+    return;
+  }
+
+  // 허용 도메인 고정(youtube-nocookie) — 임의 iframe 주입 불가
+  node.data = {
+    hName: "div",
+    hProperties: { className: ["video-embed"] },
+    hChildren: [
+      {
+        type: "element",
+        tagName: "iframe",
+        properties: {
+          src: `https://www.youtube-nocookie.com/embed/${id}`,
+          title: "YouTube video",
+          allow:
+            "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share",
+          referrerPolicy: "strict-origin-when-cross-origin",
+          allowFullScreen: true,
+          loading: "lazy",
+        },
+        children: [],
+      },
+    ],
+  };
+}
+
+function calloutBlock(node: DirectiveNode): void {
+  const defaultTitle = CALLOUT_TYPES[node.name];
+
+  node.data = {
+    hName: "div",
+    hProperties: { className: ["callout", `callout-${node.name}`] },
+  };
+
+  // :::note[커스텀 제목] 의 라벨 문단은 directiveLabel로 표시되어 들어온다
+  const first = node.children[0] as
+    | { data?: { directiveLabel?: boolean; hName?: string; hProperties?: unknown } }
+    | undefined;
+  if (first?.data && (first.data as { directiveLabel?: boolean }).directiveLabel) {
+    first.data.hName = "div";
+    first.data.hProperties = { className: ["callout-title"] };
+  } else {
+    node.children.unshift({
+      type: "paragraph",
+      data: { hName: "div", hProperties: { className: ["callout-title"] } },
+      children: [{ type: "text", value: defaultTitle }],
+    } as never);
+  }
+}
+
+function remarkCustomDirectives() {
+  return (tree: MdastRoot) => {
+    visit(tree, (node) => {
+      const directive = node as unknown as DirectiveNode;
+      if (directive.type === "leafDirective" && directive.name === "youtube") {
+        youtubeEmbed(directive);
+      } else if (
+        directive.type === "containerDirective" &&
+        directive.name in CALLOUT_TYPES
+      ) {
+        calloutBlock(directive);
+      }
+    });
+  };
+}
+
 // ---------- URL 스킴 새니타이즈 ----------
 
 const SAFE_URL_SCHEMES = new Set(["http", "https", "mailto", "tel"]);
@@ -152,7 +258,7 @@ let highlighterPromise: Promise<Highlighter> | null = null;
 
 function getHighlighter(): Promise<Highlighter> {
   highlighterPromise ??= createHighlighter({
-    themes: ["github-light"],
+    themes: ["github-light", "github-dark"],
     langs: HIGHLIGHT_LANGS,
   });
   return highlighterPromise;
@@ -197,7 +303,11 @@ function rehypeShikiHighlight() {
       if (!loaded.has(lang)) continue;
 
       const text = textOf(code).replace(/\n$/, "");
-      const hast = highlighter.codeToHast(text, { lang, theme: "github-light" });
+      // 듀얼 테마: 기본은 light 색, 다크모드는 CSS의 --shiki-dark 변수로 전환
+      const hast = highlighter.codeToHast(text, {
+        lang,
+        themes: { light: "github-light", dark: "github-dark" },
+      });
       const pre = hast.children[0];
       if (pre?.type === "element") {
         parent.children[index] = pre;
@@ -211,6 +321,8 @@ export async function renderPostHtml(contentMd: string): Promise<string> {
   const file = await unified()
     .use(remarkParse)
     .use(remarkGfm)
+    .use(remarkDirective)
+    .use(remarkCustomDirectives)
     .use(remarkRehype)
     .use(rehypeSanitizeUrls)
     .use(rehypeSectionWrap)

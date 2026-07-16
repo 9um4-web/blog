@@ -177,6 +177,10 @@ export function PostEditor({
           onChange={(e) => setContentMd(e.target.value)}
           className="min-h-[24rem] font-mono text-sm"
         />
+        <p className="text-xs text-muted-foreground">
+          확장 문법: <code>```mermaid</code> 다이어그램, <code>::youtube[영상ID]</code> 임베드,{" "}
+          <code>:::note[제목]</code> … <code>:::</code> 콜아웃 (note/info/tip/warning/danger)
+        </p>
       </div>
 
       <Separator />
