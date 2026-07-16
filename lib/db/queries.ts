@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import {
   images,
   namespaces,
+  settings,
   posts,
   postSeries,
   postTags,
@@ -97,6 +98,16 @@ export async function searchPublicPosts(query: string) {
     )
     .orderBy(desc(posts.createdAt))
     .limit(50);
+}
+
+// ---------- 사이트 설정 ----------
+
+export const DEFAULT_SITE_NAME = "Blog";
+
+export async function getSiteName(): Promise<string> {
+  const [row] = await db.select().from(settings).where(eq(settings.key, "site_name"));
+  const value = row?.value.trim();
+  return value && value.length > 0 ? value : DEFAULT_SITE_NAME;
 }
 
 // ---------- 이미지 ----------

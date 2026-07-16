@@ -1,4 +1,4 @@
-import { listPublicPosts } from "@/lib/db/queries";
+import { getSiteName, listPublicPosts } from "@/lib/db/queries";
 
 function escapeXml(s: string): string {
   return s
@@ -11,7 +11,7 @@ function escapeXml(s: string): string {
 /** RSS 피드. SpecialPage 배정 포스트는 listPublicPosts에서 이미 제외됨 (스펙 8장) */
 export async function GET(request: Request) {
   const origin = new URL(request.url).origin;
-  const posts = await listPublicPosts();
+  const [posts, siteName] = await Promise.all([listPublicPosts(), getSiteName()]);
 
   const items = posts
     .map(
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
-    <title>Blog</title>
+    <title>${escapeXml(siteName)}</title>
     <link>${origin}</link>
     <description>개인 블로그</description>
 ${items}

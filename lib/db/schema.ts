@@ -104,6 +104,12 @@ export const postSeries = pgTable(
   (t) => [primaryKey({ columns: [t.postId, t.seriesId] })],
 );
 
+/** 사이트 전역 설정 (key-value). 현재는 site_name만 사용 */
+export const settings = pgTable("setting", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
 const bytea = customType<{ data: Buffer }>({
   dataType() {
     return "bytea";
