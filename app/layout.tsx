@@ -89,6 +89,24 @@ export default async function RootLayout({
             </div>
           </header>
           <main className="flex-1 py-8">{children}</main>
+          <footer className="border-t">
+            <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-4 text-sm text-muted-foreground">
+              <p>
+                © {new Date().getFullYear()} {siteName}
+              </p>
+              <nav className="flex items-center gap-4">
+                <a href="/rss.xml" className="hover:text-foreground">
+                  RSS
+                </a>
+                <Link href="/tags" className="hover:text-foreground">
+                  태그
+                </Link>
+                <Link href="/series" className="hover:text-foreground">
+                  시리즈
+                </Link>
+              </nav>
+            </div>
+          </footer>
           <Toaster />
         </ThemeProvider>
       </body>
