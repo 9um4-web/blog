@@ -15,7 +15,7 @@ export async function PostArticle({ post }: { post: typeof posts.$inferSelect })
 
   return (
     <article>
-      <header className="mx-auto mb-8 w-full max-w-6xl px-4">
+      <header className="mx-auto mb-8 w-full max-w-7xl px-4">
         <h1 className="text-3xl font-bold">{post.title}</h1>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           <time dateTime={post.createdAt.toISOString()}>

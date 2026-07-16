@@ -80,7 +80,7 @@ export function PostView({ html, headingTree }: PostViewProps) {
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl gap-8 px-4">
+    <div className="mx-auto flex w-full max-w-7xl gap-8 px-4">
       {headingTree.length > 0 && (
         <aside className="hidden w-60 shrink-0 lg:block">
           <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto">
@@ -91,7 +91,8 @@ export function PostView({ html, headingTree }: PostViewProps) {
       <div
         ref={bodyRef}
         onClick={onBodyClick}
-        className="post-body prose prose-neutral dark:prose-invert min-w-0 flex-1 pb-24"
+        // prose 기본 65ch 폭 제한을 풀어 가용 영역을 전부 사용
+        className="post-body prose prose-neutral dark:prose-invert min-w-0 max-w-none flex-1 pb-24"
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>
