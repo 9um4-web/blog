@@ -55,6 +55,16 @@ export async function getPostTagIds(postId: number): Promise<number[]> {
   return rows.map((r) => r.tagId);
 }
 
+/** 포스트 하단 태그 목록용 (id + 이름) */
+export async function listTagsOfPost(postId: number) {
+  return db
+    .select({ id: tags.id, name: tags.name })
+    .from(postTags)
+    .innerJoin(tags, eq(postTags.tagId, tags.id))
+    .where(eq(postTags.postId, postId))
+    .orderBy(asc(tags.name));
+}
+
 export async function getPostSeriesIds(postId: number): Promise<number[]> {
   const rows = await db
     .select({ seriesId: postSeries.seriesId })
@@ -126,16 +136,21 @@ export async function getSiteName(): Promise<string> {
   return value && value.length > 0 ? value : DEFAULT_SITE_NAME;
 }
 
-/** 레이아웃용 일괄 조회: 이름 + 연락 이메일(미설정 시 null) */
-export async function getSiteSettings(): Promise<{ siteName: string; siteEmail: string | null }> {
-  const rows = await db
-    .select()
-    .from(settings)
-    .where(inArray(settings.key, ["site_name", "site_email"]));
+export interface SiteConfig {
+  siteName: string;
+  siteEmail: string | null;
+  /** 포스트 상단에 요약을 표시할지 (기본 true) */
+  showSummaryOnPost: boolean;
+}
+
+/** 레이아웃/포스트에서 쓰는 사이트 설정 일괄 조회 (setting 테이블은 작아 전체 조회) */
+export async function getSiteSettings(): Promise<SiteConfig> {
+  const rows = await db.select().from(settings);
   const map = new Map(rows.map((r) => [r.key, r.value.trim()]));
   return {
     siteName: map.get("site_name") || DEFAULT_SITE_NAME,
     siteEmail: map.get("site_email") || null,
+    showSummaryOnPost: map.get("show_summary") !== "false",
   };
 }
 

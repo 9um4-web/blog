@@ -1,6 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import type { HeadingNode } from "@/lib/domain/markdown";
 import { renderVisibleMermaid } from "./mermaid-lazy";
 import { Toc } from "./toc";
@@ -8,6 +11,13 @@ import { Toc } from "./toc";
 interface PostViewProps {
   html: string;
   headingTree: HeadingNode[];
+  title: string;
+  updatedLabel: string;
+  updatedIso: string;
+  series: { seriesId: number; name: string; isCompleted: boolean }[];
+  /** 서버에서 설정/존재 여부로 이미 걸러진 값. null이면 표시 안 함 */
+  summary: string | null;
+  tags: { id: number; name: string }[];
 }
 
 /** headingTree에서 id의 조상 체인(id 제외)을 찾는다 */
@@ -20,8 +30,18 @@ function ancestorChain(tree: HeadingNode[], targetId: string): string[] | null {
   return null;
 }
 
-export function PostView({ html, headingTree }: PostViewProps) {
+export function PostView({
+  html,
+  headingTree,
+  title,
+  updatedLabel,
+  updatedIso,
+  series,
+  summary,
+  tags,
+}: PostViewProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
+  const [tagsOpen, setTagsOpen] = useState(true);
 
   const initMermaid = useCallback(() => {
     if (bodyRef.current) void renderVisibleMermaid(bodyRef.current);
@@ -82,19 +102,77 @@ export function PostView({ html, headingTree }: PostViewProps) {
   return (
     <div className="mx-auto flex w-full max-w-7xl gap-8 px-4">
       {headingTree.length > 0 && (
+        // 목차가 제목 상단부터 왼쪽 여백을 채운다
         <aside className="hidden w-60 shrink-0 lg:block">
-          <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto">
+          <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pt-1">
             <Toc tree={headingTree} onNavigate={onTocNavigate} />
           </div>
         </aside>
       )}
-      <div
-        ref={bodyRef}
-        onClick={onBodyClick}
-        // prose 기본 65ch 폭 제한을 풀어 가용 영역을 전부 사용
-        className="post-body prose prose-neutral dark:prose-invert min-w-0 max-w-none flex-1 pb-24"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+
+      <div className="min-w-0 flex-1 pb-24">
+        {/* 제목 섹션: 제목 / (시리즈 · 마지막 수정일) */}
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold">{title}</h1>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2">
+              {series.map((s) => (
+                <Link key={s.seriesId} href={`/series/${s.seriesId}`}>
+                  <Badge variant="secondary">
+                    {s.name}
+                    {s.isCompleted && " (완결)"}
+                  </Badge>
+                </Link>
+              ))}
+            </div>
+            <time dateTime={updatedIso} className="ml-auto shrink-0">
+              {updatedLabel}
+            </time>
+          </div>
+        </header>
+
+        {summary && (
+          <p className="mb-8 rounded-lg border-l-4 bg-muted/40 px-4 py-3 text-[0.95rem] leading-relaxed text-muted-foreground">
+            {summary}
+          </p>
+        )}
+
+        <div
+          ref={bodyRef}
+          onClick={onBodyClick}
+          // prose 기본 65ch 폭 제한을 풀어 가용 영역을 전부 사용
+          className="post-body prose prose-neutral dark:prose-invert max-w-none"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+
+        {tags.length > 0 && (
+          <section className="mt-12 border-t pt-4">
+            <button
+              type="button"
+              onClick={() => setTagsOpen((v) => !v)}
+              className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              {tagsOpen ? (
+                <ChevronDown className="size-4" />
+              ) : (
+                <ChevronRight className="size-4" />
+              )}
+              태그 ({tags.length})
+            </button>
+            {tagsOpen && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {tags.map((tag) => (
+                  <Link key={tag.id} href={`/tag/${tag.id}`}>
+                    <Badge variant="outline" className="hover:bg-accent">
+                      {tag.name}
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+      </div>
     </div>
   );
 }

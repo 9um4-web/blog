@@ -1,7 +1,5 @@
 import "katex/dist/katex.min.css";
-import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
-import { listSeriesOfPost } from "@/lib/db/queries";
+import { getSiteSettings, listSeriesOfPost, listTagsOfPost } from "@/lib/db/queries";
 import type { posts } from "@/lib/db/schema";
 import { renderPostHtml } from "@/lib/domain/render";
 import { PostView } from "./post-view";
@@ -9,33 +7,33 @@ import { PostView } from "./post-view";
 const dateFmt = new Intl.DateTimeFormat("ko-KR", { dateStyle: "long" });
 
 export async function PostArticle({ post }: { post: typeof posts.$inferSelect }) {
-  const [html, seriesList] = await Promise.all([
+  const [html, seriesList, tagList, config] = await Promise.all([
     renderPostHtml(post.contentMd),
     listSeriesOfPost(post.id),
+    listTagsOfPost(post.id),
+    getSiteSettings(),
   ]);
+
+  // 자동 발췌가 아니라 명시적으로 입력한 요약만 노출 (설정으로 on/off)
+  const summary =
+    config.showSummaryOnPost && post.summary?.trim() ? post.summary.trim() : null;
 
   return (
     <article>
-      <header className="mx-auto mb-8 w-full max-w-7xl px-4">
-        <h1 className="text-3xl font-bold">{post.title}</h1>
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-          <time dateTime={post.createdAt.toISOString()}>
-            {dateFmt.format(post.createdAt)}
-          </time>
-          {post.updatedAt.getTime() !== post.createdAt.getTime() && (
-            <span>(수정: {dateFmt.format(post.updatedAt)})</span>
-          )}
-          {seriesList.map((s) => (
-            <Link key={s.seriesId} href={`/series/${s.seriesId}`}>
-              <Badge variant="secondary">
-                {s.name}
-                {s.isCompleted && " (완결)"}
-              </Badge>
-            </Link>
-          ))}
-        </div>
-      </header>
-      <PostView html={html} headingTree={post.headingTree ?? []} />
+      <PostView
+        html={html}
+        headingTree={post.headingTree ?? []}
+        title={post.title}
+        updatedLabel={dateFmt.format(post.updatedAt)}
+        updatedIso={post.updatedAt.toISOString()}
+        series={seriesList.map((s) => ({
+          seriesId: s.seriesId,
+          name: s.name,
+          isCompleted: s.isCompleted,
+        }))}
+        summary={summary}
+        tags={tagList}
+      />
     </article>
   );
 }

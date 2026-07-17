@@ -9,19 +9,22 @@ import type { ActionResult } from "./tags";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export async function updateSiteSettings(
-  name: string,
-  email: string,
-): Promise<ActionResult> {
+export interface SiteSettingsInput {
+  siteName: string;
+  siteEmail: string;
+  showSummary: boolean;
+}
+
+export async function updateSiteSettings(input: SiteSettingsInput): Promise<ActionResult> {
   await requireAdmin();
 
-  const trimmedName = name.trim();
+  const trimmedName = input.siteName.trim();
   if (trimmedName.length === 0) return { ok: false, error: "블로그 이름을 입력해 주세요." };
   if (trimmedName.length > 100) {
     return { ok: false, error: "블로그 이름은 100자를 넘을 수 없습니다." };
   }
 
-  const trimmedEmail = email.trim();
+  const trimmedEmail = input.siteEmail.trim();
   if (trimmedEmail !== "" && !EMAIL_PATTERN.test(trimmedEmail)) {
     return { ok: false, error: "이메일 형식이 올바르지 않습니다." };
   }
@@ -32,6 +35,7 @@ export async function updateSiteSettings(
       { key: "site_name", value: trimmedName },
       // 빈 값 저장 = 푸터에서 이메일 숨김
       { key: "site_email", value: trimmedEmail },
+      { key: "show_summary", value: input.showSummary ? "true" : "false" },
     ])
     .onConflictDoUpdate({
       target: settings.key,
