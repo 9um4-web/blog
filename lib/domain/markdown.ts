@@ -1,6 +1,8 @@
 import GithubSlugger from "github-slugger";
 import { toString } from "mdast-util-to-string";
+import remarkDirective from "remark-directive";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 import type { Root } from "mdast";
@@ -14,7 +16,9 @@ export interface HeadingNode {
 }
 
 export function parseMarkdown(contentMd: string): Root {
-  return unified().use(remarkParse).use(remarkGfm).parse(contentMd);
+  // directive/math를 함께 파싱해 ::: 나 $$ 원문이 문단 텍스트로 새지 않게 한다
+  const processor = unified().use(remarkParse).use(remarkGfm).use(remarkDirective).use(remarkMath);
+  return processor.runSync(processor.parse(contentMd)) as Root;
 }
 
 /**
@@ -54,6 +58,29 @@ export function extractHeadingTree(root: Root): HeadingNode[] {
   }
 
   return forest;
+}
+
+/**
+ * 목록 카드용 발췌문: 최상위 문단 텍스트만 이어붙여 maxLength에서 자른다.
+ * 헤딩/코드블록/디렉티브(콜아웃·유튜브)/수식 블록은 제외 — 마크다운 기호가
+ * 아닌 읽을 수 있는 본문만 남는다.
+ */
+export function excerptFromMarkdown(contentMd: string, maxLength = 160): string {
+  const root = parseMarkdown(contentMd);
+  const parts: string[] = [];
+  let length = 0;
+
+  for (const node of root.children) {
+    if (node.type !== "paragraph") continue;
+    const text = toString(node).replace(/\s+/g, " ").trim();
+    if (text.length === 0) continue;
+    parts.push(text);
+    length += text.length;
+    if (length >= maxLength) break;
+  }
+
+  const joined = parts.join(" ");
+  return joined.length > maxLength ? `${joined.slice(0, maxLength).trimEnd()}…` : joined;
 }
 
 export type ParseResult =

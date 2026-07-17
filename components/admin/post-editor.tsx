@@ -29,6 +29,7 @@ interface PostEditorProps {
     title: string;
     slug: string | null;
     contentMd: string;
+    summary: string | null;
     parseError: string | null;
     parsedAt: Date | null;
   } | null;
@@ -84,6 +85,7 @@ export function PostEditor({
   const [title, setTitle] = useState(post?.title ?? "");
   const [slug, setSlug] = useState(post?.slug ?? "");
   const [contentMd, setContentMd] = useState(post?.contentMd ?? "");
+  const [summary, setSummary] = useState(post?.summary ?? "");
   const [tagIds, setTagIds] = useState<Set<number>>(new Set(initialTagIds));
   const [seriesIds, setSeriesIds] = useState<Set<number>>(new Set(initialSeriesIds));
   const [parseError, setParseError] = useState(post?.parseError ?? null);
@@ -96,6 +98,7 @@ export function PostEditor({
         title,
         slug: slug.trim() === "" ? null : slug,
         contentMd,
+        summary: summary.trim() === "" ? null : summary,
       });
       if (!result.ok) {
         toast.error(result.error);
@@ -153,6 +156,17 @@ export function PostEditor({
             placeholder="my-post-slug"
           />
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="summary">요약 (선택 — 비우면 목록에 본문 앞부분이 표시됩니다)</Label>
+        <Textarea
+          id="summary"
+          value={summary}
+          onChange={(e) => setSummary(e.target.value)}
+          className="min-h-[4rem] text-sm"
+          placeholder="목록 카드에 보여줄 한두 문장"
+        />
       </div>
 
       <div className="space-y-2">

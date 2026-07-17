@@ -19,6 +19,8 @@ export const posts = pgTable("post", {
   // null이면 title 기반 자동 생성 결과가 저장됨. 커스텀 슬러그도 같은 컬럼 사용 (스펙 2장)
   slug: text("slug").unique(),
   contentMd: text("content_md").notNull().default(""),
+  // 목록 카드에 표시할 요약. null이면 본문 앞부분 발췌로 대체
+  summary: text("summary"),
   // 파싱 성공 시에만 갱신 (스펙 3장)
   headingTree: jsonb("heading_tree").$type<HeadingNode[]>(),
   parseError: text("parse_error"),

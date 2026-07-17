@@ -22,6 +22,13 @@
       "when": 1784213795842,
       "tag": "0002_adorable_dark_phoenix",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784291872399,
+      "tag": "0003_fair_pride",
+      "breakpoints": true
     }
   ]
 }

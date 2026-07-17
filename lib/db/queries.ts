@@ -12,8 +12,17 @@ import {
   tagClosure,
   tags,
 } from "@/lib/db/schema";
+import { excerptFromMarkdown } from "@/lib/domain/markdown";
 
 // ---------- 포스트 ----------
+
+/** 목록 카드용: 요약이 있으면 요약, 없으면 본문 문단 발췌로 대체 (원문 전체는 반환하지 않음) */
+function withListSummary<T extends { summary: string | null; contentMd: string }>(rows: T[]) {
+  return rows.map(({ contentMd, summary, ...rest }) => ({
+    ...rest,
+    summary: summary?.trim() || excerptFromMarkdown(contentMd),
+  }));
+}
 
 export async function listPostsForAdmin() {
   return db
@@ -59,19 +68,22 @@ export async function getPostSeriesIds(postId: number): Promise<number[]> {
  * (별도 플래그가 아니라 SpecialPage 존재 여부가 단일 진실 소스, 스펙 8장)
  */
 export async function listPublicPosts() {
-  return db
+  const rows = await db
     .select({
       id: posts.id,
       title: posts.title,
       slug: posts.slug,
       createdAt: posts.createdAt,
       updatedAt: posts.updatedAt,
+      summary: posts.summary,
+      contentMd: posts.contentMd,
     })
     .from(posts)
     .where(
       notInArray(posts.id, db.select({ id: specialPages.postId }).from(specialPages)),
     )
     .orderBy(desc(posts.createdAt));
+  return withListSummary(rows);
 }
 
 /** LIKE 패턴 메타문자(%, _, \)를 이스케이프해 검색어를 리터럴로 취급 */
@@ -82,12 +94,15 @@ function escapeLikePattern(s: string): string {
 /** 제목/본문 부분 일치 검색. 특수 페이지 배정 포스트는 목록과 동일하게 제외 */
 export async function searchPublicPosts(query: string) {
   const pattern = `%${escapeLikePattern(query)}%`;
-  return db
+  const rows = await db
     .select({
       id: posts.id,
       title: posts.title,
       slug: posts.slug,
       createdAt: posts.createdAt,
+      updatedAt: posts.updatedAt,
+      summary: posts.summary,
+      contentMd: posts.contentMd,
     })
     .from(posts)
     .where(
@@ -98,6 +113,7 @@ export async function searchPublicPosts(query: string) {
     )
     .orderBy(desc(posts.createdAt))
     .limit(50);
+  return withListSummary(rows);
 }
 
 // ---------- 사이트 설정 ----------
@@ -200,17 +216,21 @@ export async function listPostsByTag(tagId: number, includeDescendants: boolean)
         .where(eq(tagClosure.ancestorId, tagId))
     : db.select({ id: tags.id }).from(tags).where(eq(tags.id, tagId));
 
-  return db
+  const rows = await db
     .selectDistinct({
       id: posts.id,
       title: posts.title,
       slug: posts.slug,
       createdAt: posts.createdAt,
+      updatedAt: posts.updatedAt,
+      summary: posts.summary,
+      contentMd: posts.contentMd,
     })
     .from(posts)
     .innerJoin(postTags, eq(postTags.postId, posts.id))
     .where(inArray(postTags.tagId, tagIdsQuery))
     .orderBy(desc(posts.createdAt));
+  return withListSummary(rows);
 }
 
 /** 태그별 포스트 수 (하위 포함). 태그 목록 페이지용 */

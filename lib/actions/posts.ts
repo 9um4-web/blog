@@ -20,6 +20,8 @@ export interface SavePostInput {
   /** 빈 문자열/null이면 title 기반 자동 생성 */
   slug?: string | null;
   contentMd: string;
+  /** 목록 카드용 요약. 비우면 본문 발췌로 대체 표시 */
+  summary?: string | null;
 }
 
 export type SavePostResult =
@@ -98,6 +100,7 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
       title,
       slug: slugResult.slug,
       contentMd: input.contentMd,
+      summary: input.summary?.trim() || null,
       updatedAt: now,
     };
     const onSuccess = parsed.ok

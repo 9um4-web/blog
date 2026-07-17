@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { extractHeadingTree, parseForSave, parseMarkdown } from "./markdown";
+import {
+  excerptFromMarkdown,
+  extractHeadingTree,
+  parseForSave,
+  parseMarkdown,
+} from "./markdown";
 
 function tree(md: string) {
   return extractHeadingTree(parseMarkdown(md));
@@ -71,6 +76,39 @@ describe("extractHeadingTree", () => {
 
   it("빈 문서는 빈 forest", () => {
     expect(tree("")).toEqual([]);
+  });
+});
+
+describe("excerptFromMarkdown", () => {
+  it("문단 텍스트만 모아 발췌한다 (헤딩/코드 제외)", () => {
+    const md = ["## 제목", "첫 문단.", "```js", "code();", "```", "둘째 문단."].join("\n\n");
+    expect(excerptFromMarkdown(md)).toBe("첫 문단. 둘째 문단.");
+  });
+
+  it("인라인 마크업은 텍스트로 풀린다", () => {
+    expect(excerptFromMarkdown("**굵게**와 `코드`와 [링크](https://x.com)")).toBe(
+      "굵게와 코드와 링크",
+    );
+  });
+
+  it("콜아웃/유튜브 디렉티브 원문이 발췌에 섞이지 않는다", () => {
+    const md = [":::note", "콜아웃 내용", ":::", "", "::youtube[dQw4w9WgXcQ]", "", "실제 본문."].join(
+      "\n",
+    );
+    const result = excerptFromMarkdown(md);
+    expect(result).toContain("실제 본문.");
+    expect(result).not.toContain(":::");
+    expect(result).not.toContain("::youtube");
+  });
+
+  it("maxLength에서 말줄임표로 자른다", () => {
+    const result = excerptFromMarkdown("가나다라마바사 ".repeat(50), 30);
+    expect(result.length).toBeLessThanOrEqual(31);
+    expect(result.endsWith("…")).toBe(true);
+  });
+
+  it("문단이 없으면 빈 문자열", () => {
+    expect(excerptFromMarkdown("## 헤딩뿐\n\n```\ncode\n```")).toBe("");
   });
 });
 
