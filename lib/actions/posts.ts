@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { db, type Tx } from "@/lib/db";
 import { posts, specialPages } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
-import { parseForSave } from "@/lib/domain/markdown";
+import { parseForSave, type HeadingNode } from "@/lib/domain/markdown";
+import { renderPostHtml } from "@/lib/domain/render";
 import {
   resolveSlugCollision,
   slugFromTitle,
@@ -13,6 +14,19 @@ import {
   validateSlug,
   type SlugValidation,
 } from "@/lib/domain/slug";
+
+/**
+ * 에디터 실시간 미리보기용. 게시 뷰와 동일한 서버 파이프라인을 재사용해
+ * 미리보기와 실제 렌더가 어긋나지 않게 한다. 저장은 하지 않는다.
+ */
+export async function renderPostPreview(
+  contentMd: string,
+): Promise<{ html: string; headingTree: HeadingNode[] }> {
+  await requireAdmin();
+  const parsed = parseForSave(contentMd);
+  const html = await renderPostHtml(contentMd);
+  return { html, headingTree: parsed.ok ? parsed.headingTree : [] };
+}
 
 export interface SavePostInput {
   id?: number;

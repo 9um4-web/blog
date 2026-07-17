@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { savePost } from "@/lib/actions/posts";
+import { renderPostPreview, savePost } from "@/lib/actions/posts";
 import { setPostTags } from "@/lib/actions/tags";
 import { syncPostSeries } from "@/lib/actions/series";
 import { buildTagTree, type TagTreeNode } from "@/lib/domain/tag-tree";
 import { ImageUploader } from "@/components/admin/image-uploader";
+import { PostPreview } from "@/components/admin/post-preview";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -86,6 +87,9 @@ export function PostEditor({
   const [slug, setSlug] = useState(post?.slug ?? "");
   const [contentMd, setContentMd] = useState(post?.contentMd ?? "");
   const [summary, setSummary] = useState(post?.summary ?? "");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [tagIds, setTagIds] = useState<Set<number>>(new Set(initialTagIds));
   const [seriesIds, setSeriesIds] = useState<Set<number>>(new Set(initialSeriesIds));
   const [parseError, setParseError] = useState(post?.parseError ?? null);
@@ -126,6 +130,39 @@ export function PostEditor({
         router.refresh();
       }
     });
+  };
+
+  // 본문 변경을 디바운스해 서버 렌더 요청. 요청 id로 늦게 도착한 응답을
+  // 버려 순서 꼬임을 방지한다. (effect가 아니라 이벤트에서 호출)
+  const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewReqId = useRef(0);
+  const schedulePreview = (content: string) => {
+    if (previewTimer.current) clearTimeout(previewTimer.current);
+    setPreviewLoading(true);
+    previewTimer.current = setTimeout(async () => {
+      const reqId = ++previewReqId.current;
+      try {
+        const { html } = await renderPostPreview(content);
+        if (reqId === previewReqId.current) setPreviewHtml(html);
+      } catch {
+        if (reqId === previewReqId.current) {
+          setPreviewHtml('<p class="text-destructive">미리보기 렌더 실패</p>');
+        }
+      } finally {
+        if (reqId === previewReqId.current) setPreviewLoading(false);
+      }
+    }, 400);
+  };
+
+  const togglePreview = () => {
+    const next = !previewOpen;
+    setPreviewOpen(next);
+    if (next) schedulePreview(contentMd);
+  };
+
+  const onContentChange = (value: string) => {
+    setContentMd(value);
+    if (previewOpen) schedulePreview(value);
   };
 
   return (
@@ -172,25 +209,49 @@ export function PostEditor({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label htmlFor="content">본문 (마크다운, 본문 헤딩은 h2부터)</Label>
-          <ImageUploader
-            onUploaded={(markdown) => {
-              // 커서 위치에 삽입, 포커스가 없었다면 끝에 덧붙임
-              const textarea = document.getElementById("content") as HTMLTextAreaElement | null;
-              setContentMd((prev) => {
-                if (!textarea) return `${prev}\n\n${markdown}\n`;
-                const start = textarea.selectionStart ?? prev.length;
-                const end = textarea.selectionEnd ?? start;
-                return prev.slice(0, start) + markdown + prev.slice(end);
-              });
-            }}
-          />
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant={previewOpen ? "default" : "outline"}
+              size="sm"
+              onClick={togglePreview}
+            >
+              {previewOpen ? "미리보기 끄기" : "미리보기"}
+            </Button>
+            <ImageUploader
+              onUploaded={(markdown) => {
+                // 커서 위치에 삽입, 포커스가 없었다면 끝에 덧붙임
+                const textarea = document.getElementById("content") as HTMLTextAreaElement | null;
+                const start = textarea?.selectionStart ?? contentMd.length;
+                const end = textarea?.selectionEnd ?? start;
+                onContentChange(contentMd.slice(0, start) + markdown + contentMd.slice(end));
+              }}
+            />
+          </div>
         </div>
-        <Textarea
-          id="content"
-          value={contentMd}
-          onChange={(e) => setContentMd(e.target.value)}
-          className="min-h-[24rem] font-mono text-sm"
-        />
+        <div className={previewOpen ? "grid gap-4 lg:grid-cols-2" : ""}>
+          <Textarea
+            id="content"
+            value={contentMd}
+            onChange={(e) => onContentChange(e.target.value)}
+            className="min-h-[24rem] font-mono text-sm"
+          />
+          {previewOpen && (
+            <div className="min-h-[24rem] overflow-auto rounded-md border p-4">
+              <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+                <span>미리보기 (제목/목차 제외, 접기·다이어그램 동작)</span>
+                {previewLoading && <span>렌더 중…</span>}
+              </div>
+              {previewHtml ? (
+                <PostPreview html={previewHtml} />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  본문을 입력하면 미리보기가 표시됩니다.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
         <p className="text-xs text-muted-foreground">
           확장 문법: <code>```mermaid</code> · <code>::youtube[영상ID]</code> ·{" "}
           <code>:::note[제목]</code>…<code>:::</code> 콜아웃(note/info/tip/warning/danger) ·{" "}
