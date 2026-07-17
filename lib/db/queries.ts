@@ -141,16 +141,30 @@ export interface SiteConfig {
   siteEmail: string | null;
   /** 포스트 상단에 요약을 표시할지 (기본 true) */
   showSummaryOnPost: boolean;
+  /** 푸터 SNS 링크 (미설정 키는 null) */
+  social: {
+    github: string | null;
+    x: string | null;
+    soundcloud: string | null;
+    youtube: string | null;
+  };
 }
 
 /** 레이아웃/포스트에서 쓰는 사이트 설정 일괄 조회 (setting 테이블은 작아 전체 조회) */
 export async function getSiteSettings(): Promise<SiteConfig> {
   const rows = await db.select().from(settings);
   const map = new Map(rows.map((r) => [r.key, r.value.trim()]));
+  const social = (key: string) => map.get(`social_${key}`) || null;
   return {
     siteName: map.get("site_name") || DEFAULT_SITE_NAME,
     siteEmail: map.get("site_email") || null,
     showSummaryOnPost: map.get("show_summary") !== "false",
+    social: {
+      github: social("github"),
+      x: social("x"),
+      soundcloud: social("soundcloud"),
+      youtube: social("youtube"),
+    },
   };
 }
 

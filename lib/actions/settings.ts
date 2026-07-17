@@ -9,10 +9,27 @@ import type { ActionResult } from "./tags";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const SOCIAL_KEYS = ["github", "x", "soundcloud", "youtube"] as const;
+type SocialKey = (typeof SOCIAL_KEYS)[number];
+
 export interface SiteSettingsInput {
   siteName: string;
   siteEmail: string;
   showSummary: boolean;
+  social: Record<SocialKey, string>;
+}
+
+/** 빈 값이면 통과(=숨김), 값이 있으면 http(s) URL만 허용 */
+function normalizeUrl(raw: string): { ok: true; value: string } | { ok: false } {
+  const trimmed = raw.trim();
+  if (trimmed === "") return { ok: true, value: "" };
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return { ok: false };
+    return { ok: true, value: trimmed };
+  } catch {
+    return { ok: false };
+  }
 }
 
 export async function updateSiteSettings(input: SiteSettingsInput): Promise<ActionResult> {
@@ -29,6 +46,15 @@ export async function updateSiteSettings(input: SiteSettingsInput): Promise<Acti
     return { ok: false, error: "이메일 형식이 올바르지 않습니다." };
   }
 
+  const socialValues: { key: string; value: string }[] = [];
+  for (const key of SOCIAL_KEYS) {
+    const result = normalizeUrl(input.social[key] ?? "");
+    if (!result.ok) {
+      return { ok: false, error: `${key} 링크는 http(s):// 로 시작하는 URL이어야 합니다.` };
+    }
+    socialValues.push({ key: `social_${key}`, value: result.value });
+  }
+
   await db
     .insert(settings)
     .values([
@@ -36,6 +62,7 @@ export async function updateSiteSettings(input: SiteSettingsInput): Promise<Acti
       // 빈 값 저장 = 푸터에서 이메일 숨김
       { key: "site_email", value: trimmedEmail },
       { key: "show_summary", value: input.showSummary ? "true" : "false" },
+      ...socialValues,
     ])
     .onConflictDoUpdate({
       target: settings.key,

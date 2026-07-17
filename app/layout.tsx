@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { SOCIAL_PLATFORMS } from "@/components/social-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Toaster } from "@/components/ui/sonner";
 import { getSiteName, getSiteSettings } from "@/lib/db/queries";
@@ -37,7 +38,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { siteName, siteEmail } = await getSiteSettings();
+  const { siteName, siteEmail, social } = await getSiteSettings();
+  const socialLinks = SOCIAL_PLATFORMS.filter(({ key }) => social[key]);
 
   return (
     <html
@@ -90,7 +92,7 @@ export default async function RootLayout({
           </header>
           <main className="flex-1 py-8">{children}</main>
           <footer className="border-t">
-            <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-4 text-sm text-muted-foreground">
+            <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
               <p className="flex items-center gap-3">
                 <span>
                   © {new Date().getFullYear()} {siteName}
@@ -101,17 +103,35 @@ export default async function RootLayout({
                   </a>
                 )}
               </p>
-              <nav className="flex items-center gap-4">
-                <a href="/rss.xml" className="hover:text-foreground">
-                  RSS
-                </a>
-                <Link href="/tags" className="hover:text-foreground">
-                  태그
-                </Link>
-                <Link href="/series" className="hover:text-foreground">
-                  시리즈
-                </Link>
-              </nav>
+              <div className="flex items-center gap-4 sm:justify-end">
+                <nav className="flex items-center gap-4">
+                  <a href="/rss.xml" className="hover:text-foreground">
+                    RSS
+                  </a>
+                  <Link href="/tags" className="hover:text-foreground">
+                    태그
+                  </Link>
+                  <Link href="/series" className="hover:text-foreground">
+                    시리즈
+                  </Link>
+                </nav>
+                {socialLinks.length > 0 && (
+                  <div className="flex items-center gap-3">
+                    {socialLinks.map(({ key, label, Icon }) => (
+                      <a
+                        key={key}
+                        href={social[key] as string}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        aria-label={label}
+                        className="text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        <Icon className="size-5" />
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </footer>
           <Toaster />
