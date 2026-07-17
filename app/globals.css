@@ -37,8 +37,9 @@
 }
 
 /* 접힌 섹션: 자신의 헤딩만 남기고 내용(하위 섹션 포함)을 숨긴다.
-   DOM은 유지되므로 렌더된 mermaid 결과가 캐시로 재사용된다 (스펙 4.2) */
-.post-body section.heading-section[data-collapsed] > *:not(h2, h3, h4, h5, h6) {
+   DOM은 유지되므로 렌더된 mermaid 결과가 캐시로 재사용된다 (스펙 4.2)
+   :::fold{h=none} 블록(data-nofold)은 접기에서 제외 */
+.post-body section.heading-section[data-collapsed] > *:not(h2, h3, h4, h5, h6, [data-nofold]) {
   display: none;
 }
 
@@ -102,6 +103,25 @@
   height: 100%;
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) + 2px);
+}
+
+/* ---------- 정렬/들여쓰기 (:::center, :::right, :::indent{n=2}) ---------- */
+
+.post-body .align-center {
+  text-align: center;
+}
+
+.post-body .align-center img,
+.post-body .align-center .video-embed {
+  margin-inline: auto;
+}
+
+.post-body .align-right {
+  text-align: right;
+}
+
+.post-body .align-right img {
+  margin-left: auto;
 }
 
 /* ---------- 콜아웃 (:::note ~ :::) ---------- */

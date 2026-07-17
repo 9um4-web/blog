@@ -59,11 +59,45 @@ function wrapSections(root: Root): void {
     else stack[stack.length - 1].section.children.push(node as ElementContent);
   };
 
+  /**
+   * :::fold 블록 재배치: 지정한 레벨 이하의 가장 가까운 조상 섹션의 직속
+   * 자식으로 끌어올린다. 뒤에 오는 제목의 섹션은 별도 노드로 생성되므로
+   * 끌어올려진 블록이 이후 제목에 접히는 일은 구조적으로 불가능하다.
+   * h=none(또는 해당 조상 없음)이면 최상위 열린 섹션에 data-nofold로 붙여
+   * 어떤 접기에도 숨겨지지 않게 한다.
+   */
+  const pushFoldOverride = (node: Element) => {
+    const spec = String(node.properties?.dataFold ?? "none");
+
+    if (stack.length === 0) {
+      result.push(node);
+      return;
+    }
+    if (spec !== "none") {
+      const target = [...stack].reverse().find((entry) => entry.level <= Number(spec));
+      if (target) {
+        // 현재 위치보다 얕은 조상만 지정 가능. 같은/깊은 값은 기본 동작과 동일
+        target.section.children.push(node);
+        return;
+      }
+    }
+    node.properties = { ...node.properties, dataNofold: "" };
+    stack[0].section.children.push(node);
+  };
+
   for (const child of root.children) {
     const isHeading = child.type === "element" && HEADING_TAGS.has(child.tagName);
 
     if (!isHeading) {
-      push(child.type === "element" && isMermaidPre(child) ? wrapMermaid(child) : child);
+      if (
+        child.type === "element" &&
+        child.tagName === "div" &&
+        child.properties?.dataFold !== undefined
+      ) {
+        pushFoldOverride(child);
+      } else {
+        push(child.type === "element" && isMermaidPre(child) ? wrapMermaid(child) : child);
+      }
       continue;
     }
 
@@ -186,17 +220,49 @@ function calloutBlock(node: DirectiveNode): void {
   }
 }
 
+/** :::center / :::right — 블록 정렬 */
+function alignBlock(node: DirectiveNode): void {
+  node.data = {
+    hName: "div",
+    hProperties: { className: [`align-${node.name}`] },
+  };
+}
+
+/** :::indent{n=2} — n단계(1~8) 들여쓰기 */
+function indentBlock(node: DirectiveNode): void {
+  const raw = Number(node.attributes?.n ?? node.attributes?.level ?? 1);
+  const n = Number.isInteger(raw) ? Math.min(Math.max(raw, 1), 8) : 1;
+  node.data = {
+    hName: "div",
+    hProperties: { className: ["indent-block"], style: `margin-left: ${n * 1.5}rem` },
+  };
+}
+
+/**
+ * :::fold{h=2} / :::fold{h=none} — 섹션 소속 오버라이드.
+ * 실제 재배치는 rehype 단계의 wrapSections가 dataFold 값을 보고 수행한다.
+ * h는 2~6 또는 none만 유효. 그 외 값은 none으로 취급.
+ */
+function foldBlock(node: DirectiveNode): void {
+  const raw = String(node.attributes?.h ?? "none");
+  const value = /^[2-6]$/.test(raw) ? raw : "none";
+  node.data = {
+    hName: "div",
+    hProperties: { className: ["fold-override"], dataFold: value },
+  };
+}
+
 function remarkCustomDirectives() {
   return (tree: MdastRoot) => {
     visit(tree, (node) => {
       const directive = node as unknown as DirectiveNode;
       if (directive.type === "leafDirective" && directive.name === "youtube") {
         youtubeEmbed(directive);
-      } else if (
-        directive.type === "containerDirective" &&
-        directive.name in CALLOUT_TYPES
-      ) {
-        calloutBlock(directive);
+      } else if (directive.type === "containerDirective") {
+        if (directive.name in CALLOUT_TYPES) calloutBlock(directive);
+        else if (directive.name === "center" || directive.name === "right") alignBlock(directive);
+        else if (directive.name === "indent") indentBlock(directive);
+        else if (directive.name === "fold") foldBlock(directive);
       }
     });
   };

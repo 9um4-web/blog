@@ -192,8 +192,11 @@ export function PostEditor({
           className="min-h-[24rem] font-mono text-sm"
         />
         <p className="text-xs text-muted-foreground">
-          확장 문법: <code>```mermaid</code> 다이어그램, <code>::youtube[영상ID]</code> 임베드,{" "}
-          <code>:::note[제목]</code> … <code>:::</code> 콜아웃 (note/info/tip/warning/danger)
+          확장 문법: <code>```mermaid</code> · <code>::youtube[영상ID]</code> ·{" "}
+          <code>:::note[제목]</code>…<code>:::</code> 콜아웃(note/info/tip/warning/danger) ·{" "}
+          <code>$수식$</code>/<code>$$블록수식$$</code> · <code>:::center</code>·
+          <code>:::right</code> 정렬 · <code>:::indent{"{n=2}"}</code> 들여쓰기 ·{" "}
+          <code>:::fold{"{h=2}"}</code> 섹션 소속 지정(<code>h=none</code>이면 안 접힘)
         </p>
       </div>
 

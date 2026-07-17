@@ -142,4 +142,67 @@ describe("renderPostHtml", () => {
     const html = await renderPostHtml("본문 유지\n\n$\\frac{1}{$\n");
     expect(html).toContain("본문 유지");
   });
+
+  it(":::center / :::right 정렬 블록을 렌더한다", async () => {
+    const html = await renderPostHtml(
+      [":::center", "가운데 문단", ":::", "", ":::right", "오른쪽 문단", ":::"].join("\n"),
+    );
+    expect(html).toContain('class="align-center"');
+    expect(html).toContain('class="align-right"');
+    expect(html).toContain("가운데 문단");
+  });
+
+  it(":::indent{n=3}은 3단계 들여쓰기, 범위 밖 값은 보정된다", async () => {
+    const html = await renderPostHtml(":::indent{n=3}\n들여쓴 내용\n:::");
+    expect(html).toContain("margin-left: 4.5rem");
+    const over = await renderPostHtml(":::indent{n=99}\nx\n:::");
+    expect(over).toContain("margin-left: 12rem"); // 최대 8단계로 클램프
+  });
+
+  it(":::fold{h=2}는 블록을 h2 섹션 직속으로 끌어올린다 (h3 접기의 영향권 밖)", async () => {
+    const md = [
+      "## 제목1",
+      "내용 1",
+      "### 제목 2",
+      "내용 2",
+      ":::fold{h=2}",
+      "내용 3",
+      ":::",
+      "### 제목 3",
+      "이후 내용",
+    ].join("\n\n");
+    const html = await renderPostHtml(md);
+
+    // 제목 2 섹션(중첩 섹션 없음)은 자신의 </section>까지 — 내용 3을 포함하면 안 됨
+    const sectionB = /<section[^>]*data-heading-id="제목-2"[^>]*>[\s\S]*?<\/section>/.exec(html)?.[0];
+    expect(sectionB).toBeDefined();
+    expect(sectionB).toContain("내용 2");
+    expect(sectionB).not.toContain("내용 3");
+
+    // 문서 순서 유지: 내용 3은 제목 2 섹션 뒤, 제목 3 섹션 앞
+    expect(html.indexOf("내용 3")).toBeGreaterThan(html.indexOf('data-heading-id="제목-2"'));
+    expect(html.indexOf("내용 3")).toBeLessThan(html.indexOf('data-heading-id="제목-3"'));
+
+    // 이후 제목(제목 3) 섹션에 포함되지 않음
+    const sectionC = /<section[^>]*data-heading-id="제목-3"[^>]*>[\s\S]*<\/section>/.exec(html)?.[0];
+    expect(sectionC).not.toContain("내용 3");
+  });
+
+  it(":::fold{h=none}은 data-nofold로 어떤 접기에서도 제외된다", async () => {
+    const md = ["## A", "### B", ":::fold{h=none}", "항상 보임", ":::"].join("\n\n");
+    const html = await renderPostHtml(md);
+    expect(html).toContain("data-nofold");
+    // 최상위 열린 섹션(A)의 직속 자식 — B 섹션 밖에 위치
+    const sectionB = /<section[^>]*data-heading-id="b"[^>]*>[\s\S]*?<\/section>/.exec(html)?.[0];
+    expect(sectionB).not.toContain("항상 보임");
+  });
+
+  it("fold에 현재보다 깊은/잘못된 h를 지정하면 기본 소속과 동일하게 동작한다", async () => {
+    const md = ["## A", ":::fold{h=6}", "그대로 A 소속", ":::"].join("\n\n");
+    const html = await renderPostHtml(md);
+    // h=6 ≥ 현재(2)이므로 A 섹션 직속 = 기본 동작, nofold 아님
+    const sectionA = /<section[^>]*data-heading-id="a"[^>]*>[\s\S]*<\/section>/.exec(html)?.[0];
+    expect(sectionA).toContain("그대로 A 소속");
+    expect(html).not.toContain("data-nofold");
+  });
 });
