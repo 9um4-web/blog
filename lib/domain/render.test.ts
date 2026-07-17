@@ -126,4 +126,20 @@ describe("renderPostHtml", () => {
     const html = await renderPostHtml("본문\n\n::unknown[x]");
     expect(html).toContain("본문");
   });
+
+  it("$인라인$ 수식을 KaTeX로 렌더한다", async () => {
+    const html = await renderPostHtml("질량-에너지 등가: $E = mc^2$");
+    expect(html).toContain("katex");
+    expect(html).not.toContain("$E = mc^2$"); // 원문 달러 표기가 남지 않음
+  });
+
+  it("$$블록$$ 수식을 display 모드로 렌더한다", async () => {
+    const html = await renderPostHtml("$$\n\\int_0^1 x^2\\,dx = \\frac{1}{3}\n$$");
+    expect(html).toContain("katex-display");
+  });
+
+  it("잘못된 수식은 에러 표시로 대체되고 나머지 본문은 렌더된다", async () => {
+    const html = await renderPostHtml("본문 유지\n\n$\\frac{1}{$\n");
+    expect(html).toContain("본문 유지");
+  });
 });

@@ -4,7 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Toaster } from "@/components/ui/sonner";
-import { getSiteName } from "@/lib/db/queries";
+import { getSiteName, getSiteSettings } from "@/lib/db/queries";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,7 +37,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const siteName = await getSiteName();
+  const { siteName, siteEmail } = await getSiteSettings();
 
   return (
     <html
@@ -91,8 +91,15 @@ export default async function RootLayout({
           <main className="flex-1 py-8">{children}</main>
           <footer className="border-t">
             <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-4 text-sm text-muted-foreground">
-              <p>
-                © {new Date().getFullYear()} {siteName}
+              <p className="flex items-center gap-3">
+                <span>
+                  © {new Date().getFullYear()} {siteName}
+                </span>
+                {siteEmail && (
+                  <a href={`mailto:${siteEmail}`} className="hover:text-foreground">
+                    {siteEmail}
+                  </a>
+                )}
               </p>
               <nav className="flex items-center gap-4">
                 <a href="/rss.xml" className="hover:text-foreground">

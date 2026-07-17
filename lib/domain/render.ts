@@ -1,7 +1,9 @@
 import GithubSlugger from "github-slugger";
+import rehypeKatex from "rehype-katex";
 import rehypeStringify from "rehype-stringify";
 import remarkDirective from "remark-directive";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import { createHighlighter, type Highlighter } from "shiki";
@@ -321,9 +323,11 @@ export async function renderPostHtml(contentMd: string): Promise<string> {
   const file = await unified()
     .use(remarkParse)
     .use(remarkGfm)
+    .use(remarkMath) // $인라인$, $$블록$$ 수식
     .use(remarkDirective)
     .use(remarkCustomDirectives)
     .use(remarkRehype)
+    .use(rehypeKatex) // 수식을 KaTeX HTML로 변환 (수식 오류 시 빨간 원문 표시)
     .use(rehypeSanitizeUrls)
     .use(rehypeSectionWrap)
     .use(rehypeShikiHighlight)

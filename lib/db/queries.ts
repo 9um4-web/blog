@@ -110,6 +110,19 @@ export async function getSiteName(): Promise<string> {
   return value && value.length > 0 ? value : DEFAULT_SITE_NAME;
 }
 
+/** 레이아웃용 일괄 조회: 이름 + 연락 이메일(미설정 시 null) */
+export async function getSiteSettings(): Promise<{ siteName: string; siteEmail: string | null }> {
+  const rows = await db
+    .select()
+    .from(settings)
+    .where(inArray(settings.key, ["site_name", "site_email"]));
+  const map = new Map(rows.map((r) => [r.key, r.value.trim()]));
+  return {
+    siteName: map.get("site_name") || DEFAULT_SITE_NAME,
+    siteEmail: map.get("site_email") || null,
+  };
+}
+
 // ---------- 이미지 ----------
 
 /** 관리 목록용 — bytea data 컬럼은 제외하고 메타데이터만 */

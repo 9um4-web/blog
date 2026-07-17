@@ -1,3 +1,4 @@
+import "katex/dist/katex.min.css";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { listSeriesOfPost } from "@/lib/db/queries";
