@@ -105,7 +105,7 @@ export function PostView({
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl gap-8 px-4">
+    <div className="mx-auto flex w-full max-w-5xl gap-8 px-4">
       {headingTree.length > 0 && (
         // 목차가 제목 상단부터 왼쪽 여백을 채운다
         <aside className="hidden w-60 shrink-0 lg:block">

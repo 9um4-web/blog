@@ -41,7 +41,7 @@ export default async function RootLayout({
       <body className="flex min-h-full flex-col">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
-            <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-6 px-4">
+            <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-6 px-4">
               <Link href="/" className="font-semibold">
                 {siteName}
               </Link>
