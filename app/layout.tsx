@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
 import Link from "next/link";
 import { fontVariableClasses } from "@/app/fonts";
+import { MobileNav } from "@/components/mobile-nav";
 import { SOCIAL_PLATFORMS } from "@/components/social-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Toaster } from "@/components/ui/sonner";
@@ -49,7 +50,8 @@ export default async function RootLayout({
               <Link href="/" className="font-semibold">
                 {siteName}
               </Link>
-              <nav className="flex items-center gap-4 text-sm text-muted-foreground">
+              {/* md 미만에서는 MobileNav의 드롭다운으로 대체 */}
+              <nav className="hidden items-center gap-4 text-sm text-muted-foreground md:flex">
                 {enabledNavItems.map((item) => (
                   <Link key={item.id} href={item.href} className="hover:text-foreground">
                     {item.label}
@@ -57,7 +59,7 @@ export default async function RootLayout({
                 ))}
               </nav>
               <div className="ml-auto flex items-center gap-2">
-                <form action="/search" className="hidden sm:block">
+                <form action="/search" className="hidden md:block">
                   <input
                     type="search"
                     name="q"
@@ -65,19 +67,14 @@ export default async function RootLayout({
                     className="h-8 w-36 rounded-md border bg-transparent px-2 text-sm outline-none focus:ring-2 focus:ring-ring"
                   />
                 </form>
-                <Link
-                  href="/search"
-                  className="text-sm text-muted-foreground hover:text-foreground sm:hidden"
-                >
-                  검색
-                </Link>
                 <ThemeToggle />
                 <Link
                   href="/admin"
-                  className="text-sm text-muted-foreground hover:text-foreground"
+                  className="hidden text-sm text-muted-foreground hover:text-foreground md:inline"
                 >
                   관리
                 </Link>
+                <MobileNav items={enabledNavItems} />
               </div>
             </div>
           </header>
