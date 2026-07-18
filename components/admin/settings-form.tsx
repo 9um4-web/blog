@@ -10,16 +10,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
+const GISCUS_FIELDS = [
+  { key: "repo", label: "저장소 (owner/repo)", placeholder: "9um4-web/blog" },
+  { key: "repoId", label: "Repository ID", placeholder: "R_kgDO…" },
+  { key: "category", label: "카테고리", placeholder: "Announcements" },
+  { key: "categoryId", label: "Category ID", placeholder: "DIC_kwDO…" },
+] as const;
+
+type GiscusFieldKey = (typeof GISCUS_FIELDS)[number]["key"];
+
 export function SettingsForm({
   siteName,
   siteEmail,
   showSummary,
   social,
+  giscus,
 }: {
   siteName: string;
   siteEmail: string | null;
   showSummary: boolean;
   social: Record<SocialKey, string | null>;
+  giscus: Record<GiscusFieldKey, string> | null;
 }) {
   const router = useRouter();
   const [name, setName] = useState(siteName);
@@ -31,6 +42,12 @@ export function SettingsForm({
     soundcloud: social.soundcloud ?? "",
     youtube: social.youtube ?? "",
   });
+  const [giscusValues, setGiscusValues] = useState<Record<GiscusFieldKey, string>>({
+    repo: giscus?.repo ?? "",
+    repoId: giscus?.repoId ?? "",
+    category: giscus?.category ?? "",
+    categoryId: giscus?.categoryId ?? "",
+  });
   const [pending, startTransition] = useTransition();
 
   const onSave = () => {
@@ -40,6 +57,7 @@ export function SettingsForm({
         siteEmail: email,
         showSummary: summaryOn,
         social: socialUrls,
+        giscus: giscusValues,
       });
       if (result.ok) {
         toast.success("저장했습니다.");
@@ -106,6 +124,31 @@ export function SettingsForm({
               value={socialUrls[key]}
               onChange={(e) => setSocialUrls((prev) => ({ ...prev, [key]: e.target.value }))}
               placeholder="https://…"
+            />
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-3 rounded-lg border p-3">
+        <div className="space-y-0.5">
+          <p className="text-sm font-medium">댓글 (Giscus)</p>
+          <p className="text-xs text-muted-foreground">
+            giscus.app에서 저장소를 설정하고 발급된 값을 붙여넣으세요. 네 값이 모두
+            채워져야 포스트 하단 댓글과 방명록이 활성화됩니다.
+          </p>
+        </div>
+        {GISCUS_FIELDS.map(({ key, label, placeholder }) => (
+          <div key={key} className="flex items-center gap-2">
+            <Label htmlFor={`giscus-${key}`} className="w-40 shrink-0 text-sm">
+              {label}
+            </Label>
+            <Input
+              id={`giscus-${key}`}
+              value={giscusValues[key]}
+              onChange={(e) =>
+                setGiscusValues((prev) => ({ ...prev, [key]: e.target.value }))
+              }
+              placeholder={placeholder}
             />
           </div>
         ))}

@@ -13,6 +13,7 @@ export const SYSTEM_RESERVED_SLUGS = [
   "feed",
   "posts",
   "images",
+  "guestbook",
 ] as const;
 
 export const SLUG_MAX_LENGTH = 100;

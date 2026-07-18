@@ -64,6 +64,9 @@ export default async function RootLayout({
                 <Link href="/series" className="hover:text-foreground">
                   시리즈
                 </Link>
+                <Link href="/guestbook" className="hover:text-foreground">
+                  방명록
+                </Link>
               </nav>
               <div className="ml-auto flex items-center gap-2">
                 <form action="/search" className="hidden sm:block">

@@ -17,6 +17,12 @@ export interface SiteSettingsInput {
   siteEmail: string;
   showSummary: boolean;
   social: Record<SocialKey, string>;
+  giscus: {
+    repo: string;
+    repoId: string;
+    category: string;
+    categoryId: string;
+  };
 }
 
 /** 빈 값이면 통과(=숨김), 값이 있으면 http(s) URL만 허용 */
@@ -55,6 +61,17 @@ export async function updateSiteSettings(input: SiteSettingsInput): Promise<Acti
     socialValues.push({ key: `social_${key}`, value: result.value });
   }
 
+  const giscusRepo = input.giscus.repo.trim();
+  if (giscusRepo !== "" && !/^[\w.-]+\/[\w.-]+$/.test(giscusRepo)) {
+    return { ok: false, error: "Giscus 저장소는 owner/repo 형식이어야 합니다." };
+  }
+  const giscusValues = [
+    { key: "giscus_repo", value: giscusRepo },
+    { key: "giscus_repo_id", value: input.giscus.repoId.trim() },
+    { key: "giscus_category", value: input.giscus.category.trim() },
+    { key: "giscus_category_id", value: input.giscus.categoryId.trim() },
+  ];
+
   await db
     .insert(settings)
     .values([
@@ -63,6 +80,7 @@ export async function updateSiteSettings(input: SiteSettingsInput): Promise<Acti
       { key: "site_email", value: trimmedEmail },
       { key: "show_summary", value: input.showSummary ? "true" : "false" },
       ...socialValues,
+      ...giscusValues,
     ])
     .onConflictDoUpdate({
       target: settings.key,

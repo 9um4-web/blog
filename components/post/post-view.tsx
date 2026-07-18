@@ -3,8 +3,10 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Comments } from "@/components/comments";
 import { Badge } from "@/components/ui/badge";
 import type { HeadingNode } from "@/lib/domain/markdown";
+import type { GiscusConfig } from "@/lib/db/queries";
 import { renderVisibleMermaid } from "./mermaid-lazy";
 import { Toc } from "./toc";
 
@@ -18,6 +20,8 @@ interface PostViewProps {
   /** 서버에서 설정/존재 여부로 이미 걸러진 값. null이면 표시 안 함 */
   summary: string | null;
   tags: { id: number; name: string }[];
+  /** null이면 댓글 미설정 → 섹션 숨김 */
+  giscus: GiscusConfig | null;
 }
 
 /** headingTree에서 id의 조상 체인(id 제외)을 찾는다 */
@@ -39,6 +43,7 @@ export function PostView({
   series,
   summary,
   tags,
+  giscus,
 }: PostViewProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [tagsOpen, setTagsOpen] = useState(true);
@@ -170,6 +175,12 @@ export function PostView({
                 ))}
               </div>
             )}
+          </section>
+        )}
+
+        {giscus && (
+          <section className="mt-12 border-t pt-8">
+            <Comments config={giscus} mapping={{ type: "pathname" }} />
           </section>
         )}
       </div>

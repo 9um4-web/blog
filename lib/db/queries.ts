@@ -136,6 +136,13 @@ export async function getSiteName(): Promise<string> {
   return value && value.length > 0 ? value : DEFAULT_SITE_NAME;
 }
 
+export interface GiscusConfig {
+  repo: string;
+  repoId: string;
+  category: string;
+  categoryId: string;
+}
+
 export interface SiteConfig {
   siteName: string;
   siteEmail: string | null;
@@ -148,6 +155,8 @@ export interface SiteConfig {
     soundcloud: string | null;
     youtube: string | null;
   };
+  /** Giscus 댓글 설정. 필수값이 모두 채워졌을 때만 non-null */
+  giscus: GiscusConfig | null;
 }
 
 /** 레이아웃/포스트에서 쓰는 사이트 설정 일괄 조회 (setting 테이블은 작아 전체 조회) */
@@ -155,6 +164,21 @@ export async function getSiteSettings(): Promise<SiteConfig> {
   const rows = await db.select().from(settings);
   const map = new Map(rows.map((r) => [r.key, r.value.trim()]));
   const social = (key: string) => map.get(`social_${key}`) || null;
+
+  const giscusRepo = map.get("giscus_repo") || "";
+  const giscusRepoId = map.get("giscus_repo_id") || "";
+  const giscusCategory = map.get("giscus_category") || "";
+  const giscusCategoryId = map.get("giscus_category_id") || "";
+  const giscus =
+    giscusRepo && giscusRepoId && giscusCategory && giscusCategoryId
+      ? {
+          repo: giscusRepo,
+          repoId: giscusRepoId,
+          category: giscusCategory,
+          categoryId: giscusCategoryId,
+        }
+      : null;
+
   return {
     siteName: map.get("site_name") || DEFAULT_SITE_NAME,
     siteEmail: map.get("site_email") || null,
@@ -165,6 +189,7 @@ export async function getSiteSettings(): Promise<SiteConfig> {
       soundcloud: social("soundcloud"),
       youtube: social("youtube"),
     },
+    giscus,
   };
 }
 

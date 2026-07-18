@@ -33,6 +33,7 @@ export async function PostArticle({ post }: { post: typeof posts.$inferSelect })
         }))}
         summary={summary}
         tags={tagList}
+        giscus={config.giscus}
       />
     </article>
   );
