@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { PostArticle } from "@/components/post/post-article";
-import { getPostBySlug } from "@/lib/db/queries";
+import { getPostBySlug, getSiteName } from "@/lib/db/queries";
+import { postMetadata } from "@/lib/seo";
 
 export default async function PostPage({
   params,
@@ -21,5 +22,7 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
   const post = await getPostBySlug(slug);
-  return { title: post?.title ?? "글을 찾을 수 없음" };
+  if (!post) return { title: "글을 찾을 수 없음" };
+  const siteName = await getSiteName();
+  return postMetadata(post, `/${slug}`, siteName);
 }

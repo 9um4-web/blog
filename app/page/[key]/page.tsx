@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { PostArticle } from "@/components/post/post-article";
-import { getSpecialPagePost } from "@/lib/db/queries";
+import { getSiteName, getSpecialPagePost } from "@/lib/db/queries";
+import { postMetadata } from "@/lib/seo";
 
 /** SpecialPage 범용 경로: /page/{key} (스펙 8장) */
 export default async function SpecialPage({
@@ -21,5 +22,7 @@ export async function generateMetadata({
 }) {
   const { key } = await params;
   const post = await getSpecialPagePost(key);
-  return { title: post?.title ?? "페이지를 찾을 수 없음" };
+  if (!post) return { title: "페이지를 찾을 수 없음" };
+  const siteName = await getSiteName();
+  return postMetadata(post, `/page/${key}`, siteName);
 }

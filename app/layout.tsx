@@ -7,6 +7,7 @@ import { SOCIAL_PLATFORMS } from "@/components/social-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Toaster } from "@/components/ui/sonner";
 import { getNavItems, getSiteName, getSiteSettings } from "@/lib/db/queries";
+import { SITE_URL } from "@/lib/seo";
 import "./globals.css";
 
 // DB 기반 콘텐츠라 빌드 시점 프리렌더 대신 요청 시점 렌더링 사용
@@ -16,11 +17,20 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
   const siteName = await getSiteName();
   return {
+    metadataBase: new URL(SITE_URL),
     title: {
       default: siteName,
       template: `%s | ${siteName}`,
     },
     description: "개인 블로그",
+    openGraph: {
+      type: "website",
+      siteName,
+      locale: "ko_KR",
+    },
+    twitter: {
+      card: "summary",
+    },
   };
 }
 
