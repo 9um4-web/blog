@@ -7,6 +7,9 @@ import {
 } from "@/lib/db/queries";
 import { SITE_URL } from "@/lib/seo";
 
+// DB 기반 콘텐츠라 빌드 시점 프리렌더 대신 요청 시점 렌더링 사용 (Docker 빌드 단계에 DB가 없어도 되도록)
+export const dynamic = "force-dynamic";
+
 const STATIC_ROUTES: Array<{ path: string; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"]; priority: number }> = [
   { path: "/", changeFrequency: "daily", priority: 1 },
   { path: "/posts", changeFrequency: "daily", priority: 0.8 },
