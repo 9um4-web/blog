@@ -1,22 +1,12 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
-import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { fontVariableClasses } from "@/app/fonts";
 import { SOCIAL_PLATFORMS } from "@/components/social-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Toaster } from "@/components/ui/sonner";
 import { getSiteName, getSiteSettings } from "@/lib/db/queries";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 // DB 기반 콘텐츠라 빌드 시점 프리렌더 대신 요청 시점 렌더링 사용
 // (Docker 빌드 단계에 DB가 없어도 되도록)
@@ -38,14 +28,15 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { siteName, siteEmail, social } = await getSiteSettings();
+  const { siteName, siteEmail, social, siteFont } = await getSiteSettings();
   const socialLinks = SOCIAL_PLATFORMS.filter(({ key }) => social[key]);
 
   return (
     <html
       lang="ko"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      data-font={siteFont}
+      className={`${fontVariableClasses} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

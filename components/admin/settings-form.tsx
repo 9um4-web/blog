@@ -4,10 +4,18 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { updateSiteSettings } from "@/lib/actions/settings";
+import { FONT_OPTIONS } from "@/lib/site-fonts";
 import { SOCIAL_PLATFORMS, type SocialKey } from "@/components/social-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
 const GISCUS_FIELDS = [
@@ -25,12 +33,14 @@ export function SettingsForm({
   showSummary,
   social,
   giscus,
+  siteFont,
 }: {
   siteName: string;
   siteEmail: string | null;
   showSummary: boolean;
   social: Record<SocialKey, string | null>;
   giscus: Record<GiscusFieldKey, string> | null;
+  siteFont: string;
 }) {
   const router = useRouter();
   const [name, setName] = useState(siteName);
@@ -48,6 +58,7 @@ export function SettingsForm({
     category: giscus?.category ?? "",
     categoryId: giscus?.categoryId ?? "",
   });
+  const [font, setFont] = useState(siteFont);
   const [pending, startTransition] = useTransition();
 
   const onSave = () => {
@@ -58,6 +69,7 @@ export function SettingsForm({
         showSummary: summaryOn,
         social: socialUrls,
         giscus: giscusValues,
+        siteFont: font,
       });
       if (result.ok) {
         toast.success("저장했습니다.");
@@ -95,6 +107,26 @@ export function SettingsForm({
           푸터에 표시됩니다. 비워두면 표시하지 않습니다.
         </p>
       </div>
+      <div className="space-y-2">
+        <Label>사이트 글꼴</Label>
+        <Select value={font} onValueChange={setFont}>
+          <SelectTrigger className="w-56">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {FONT_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          사이트 전체에 적용됩니다. 한글 글꼴(Pretendard 등)은 셀프호스팅되어 외부
+          요청이 없습니다.
+        </p>
+      </div>
+
       <div className="flex items-center justify-between rounded-lg border p-3">
         <div className="space-y-0.5">
           <Label htmlFor="show-summary">포스트에 요약 표시</Label>

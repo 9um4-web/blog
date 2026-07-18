@@ -157,6 +157,8 @@ export interface SiteConfig {
   };
   /** Giscus 댓글 설정. 필수값이 모두 채워졌을 때만 non-null */
   giscus: GiscusConfig | null;
+  /** 사이트 글꼴 (app/fonts.ts의 FONT_OPTIONS 값, 기본 geist) */
+  siteFont: string;
 }
 
 /** 레이아웃/포스트에서 쓰는 사이트 설정 일괄 조회 (setting 테이블은 작아 전체 조회) */
@@ -190,6 +192,7 @@ export async function getSiteSettings(): Promise<SiteConfig> {
       youtube: social("youtube"),
     },
     giscus,
+    siteFont: map.get("site_font") || "geist",
   };
 }
 

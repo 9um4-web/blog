@@ -3,6 +3,34 @@
 @import "shadcn/tailwind.css";
 @plugin "@tailwindcss/typography";
 
+/* ---------- 사이트 글꼴 (설정의 site_font → html[data-font]) ---------- */
+
+:root[data-font="system"] {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Apple SD Gothic Neo",
+    "Malgun Gothic", sans-serif;
+}
+
+:root[data-font="geist"] {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, "Apple SD Gothic Neo",
+    "Malgun Gothic", sans-serif;
+}
+
+:root[data-font="pretendard"] {
+  --font-sans: var(--font-pretendard), ui-sans-serif, system-ui, sans-serif;
+}
+
+:root[data-font="noto-sans-kr"] {
+  --font-sans: var(--font-noto-sans-kr), ui-sans-serif, system-ui, sans-serif;
+}
+
+:root[data-font="nanum-gothic"] {
+  --font-sans: var(--font-nanum-gothic), ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
 /* ---------- 포스트 본문: 헤딩 섹션 접기/펼치기 (스펙 4.1) ---------- */
 
 .post-body section.heading-section > h2,
