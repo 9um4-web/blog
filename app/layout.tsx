@@ -90,7 +90,7 @@ export default async function RootLayout({
           </header>
           <main className="flex-1 py-8">{children}</main>
           <footer className="border-t">
-            <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-4 py-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
               <p className="flex items-center gap-3">
                 <span>
                   © {new Date().getFullYear()} {siteName}

@@ -43,6 +43,13 @@
       "when": 1784387547633,
       "tag": "0005_complex_hercules",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784408782409,
+      "tag": "0006_magenta_albert_cleary",
+      "breakpoints": true
     }
   ]
 }

@@ -33,6 +33,7 @@ export async function listPostsForAdmin() {
       slug: posts.slug,
       updatedAt: posts.updatedAt,
       parseError: posts.parseError,
+      unlisted: posts.unlisted,
     })
     .from(posts)
     .orderBy(desc(posts.updatedAt));
@@ -90,7 +91,10 @@ export async function listPublicPosts() {
     })
     .from(posts)
     .where(
-      notInArray(posts.id, db.select({ id: specialPages.postId }).from(specialPages)),
+      and(
+        notInArray(posts.id, db.select({ id: specialPages.postId }).from(specialPages)),
+        eq(posts.unlisted, false),
+      ),
     )
     .orderBy(desc(posts.createdAt));
   return withListSummary(rows);
@@ -118,6 +122,7 @@ export async function searchPublicPosts(query: string) {
     .where(
       and(
         notInArray(posts.id, db.select({ id: specialPages.postId }).from(specialPages)),
+        eq(posts.unlisted, false),
         or(ilike(posts.title, pattern), ilike(posts.contentMd, pattern)),
       ),
     )
@@ -145,6 +150,7 @@ export async function listPublicPostCardsBySlugs(slugs: string[]) {
       and(
         inArray(posts.slug, normalized),
         notInArray(posts.id, db.select({ id: specialPages.postId }).from(specialPages)),
+        eq(posts.unlisted, false),
       ),
     );
 
@@ -372,7 +378,7 @@ export async function listPostsByTag(tagId: number, includeDescendants: boolean)
     })
     .from(posts)
     .innerJoin(postTags, eq(postTags.postId, posts.id))
-    .where(inArray(postTags.tagId, tagIdsQuery))
+    .where(and(inArray(postTags.tagId, tagIdsQuery), eq(posts.unlisted, false)))
     .orderBy(desc(posts.createdAt));
   return withListSummary(rows);
 }
@@ -417,8 +423,11 @@ export async function getSeriesBySlug(slug: string) {
   return row ?? null;
 }
 
-/** 시리즈 내 포스트를 fractional order 순으로 조회 (스펙 6장) */
-export async function listSeriesPosts(seriesId: number) {
+/**
+ * 시리즈 내 포스트를 fractional order 순으로 조회 (스펙 6장).
+ * includeUnlisted=false(공개 시리즈 페이지)면 링크 전용 포스트는 빠진다 — 관리 화면에서는 true로 호출.
+ */
+export async function listSeriesPosts(seriesId: number, includeUnlisted: boolean) {
   return db
     .select({
       postId: posts.id,
@@ -428,7 +437,11 @@ export async function listSeriesPosts(seriesId: number) {
     })
     .from(postSeries)
     .innerJoin(posts, eq(postSeries.postId, posts.id))
-    .where(eq(postSeries.seriesId, seriesId))
+    .where(
+      includeUnlisted
+        ? eq(postSeries.seriesId, seriesId)
+        : and(eq(postSeries.seriesId, seriesId), eq(posts.unlisted, false)),
+    )
     .orderBy(asc(postSeries.order));
 }
 
@@ -464,8 +477,12 @@ export async function listSeriesByIds(ids: number[]) {
     .where(inArray(series.id, normalized));
 }
 
-/** 임베드 카드용 시리즈-포스트 목록 일괄 조회 (fractional order 정렬) */
-export async function listSeriesPostsBySeriesIds(seriesIds: number[]) {
+/**
+ * 임베드 카드(::series{id=...})용 시리즈-포스트 목록 일괄 조회 (fractional order 정렬).
+ * includeUnlisted=false(공개 포스트 본문에 렌더될 때)면 링크 전용 포스트는 카드에서 빠진다 —
+ * 에디터 미리보기는 true로 호출.
+ */
+export async function listSeriesPostsBySeriesIds(seriesIds: number[], includeUnlisted: boolean) {
   const normalized = [...new Set(seriesIds.filter((id) => Number.isInteger(id) && id > 0))];
   if (normalized.length === 0) return [];
 
@@ -479,6 +496,10 @@ export async function listSeriesPostsBySeriesIds(seriesIds: number[]) {
     })
     .from(postSeries)
     .innerJoin(posts, eq(postSeries.postId, posts.id))
-    .where(inArray(postSeries.seriesId, normalized))
+    .where(
+      includeUnlisted
+        ? inArray(postSeries.seriesId, normalized)
+        : and(inArray(postSeries.seriesId, normalized), eq(posts.unlisted, false)),
+    )
     .orderBy(asc(postSeries.seriesId), asc(postSeries.order));
 }

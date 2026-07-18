@@ -14,7 +14,7 @@ export default async function SeriesPage({
   const series = await getSeriesBySlug(slug);
   if (!series) notFound();
 
-  const posts = await listSeriesPosts(series.id);
+  const posts = await listSeriesPosts(series.id, false);
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4">

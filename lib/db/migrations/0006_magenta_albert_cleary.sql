@@ -1,0 +1,1 @@
+ALTER TABLE "post" ADD COLUMN "unlisted" boolean DEFAULT false NOT NULL;

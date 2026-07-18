@@ -21,6 +21,8 @@ export const posts = pgTable("post", {
   contentMd: text("content_md").notNull().default(""),
   // 목록 카드에 표시할 요약. null이면 본문 앞부분 발췌로 대체
   summary: text("summary"),
+  // true면 목록/검색/태그/시리즈/사이트맵/RSS 등 공개 열람 경로에서 제외되고 직접 링크로만 접근 가능
+  unlisted: boolean("unlisted").notNull().default(false),
   // 파싱 성공 시에만 갱신 (스펙 3장)
   headingTree: jsonb("heading_tree").$type<HeadingNode[]>(),
   parseError: text("parse_error"),

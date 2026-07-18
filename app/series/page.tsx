@@ -6,7 +6,7 @@ export const metadata = { title: "시리즈" };
 export default async function SeriesListPage() {
   const rows = await listSeries();
   const withPosts = await Promise.all(
-    rows.map(async (s) => ({ ...s, posts: await listSeriesPosts(s.id) })),
+    rows.map(async (s) => ({ ...s, posts: await listSeriesPosts(s.id, false) })),
   );
 
   return (

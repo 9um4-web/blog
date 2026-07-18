@@ -32,6 +32,7 @@ interface PostEditorProps {
     slug: string | null;
     contentMd: string;
     summary: string | null;
+    unlisted: boolean;
     parseError: string | null;
     parsedAt: Date | null;
   } | null;
@@ -88,6 +89,7 @@ export function PostEditor({
   const [slug, setSlug] = useState(post?.slug ?? "");
   const [contentMd, setContentMd] = useState(post?.contentMd ?? "");
   const [summary, setSummary] = useState(post?.summary ?? "");
+  const [unlisted, setUnlisted] = useState(post?.unlisted ?? false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewBodyParts, setPreviewBodyParts] = useState<HydratedPostBodyPart[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -104,6 +106,7 @@ export function PostEditor({
         slug: slug.trim() === "" ? null : slug,
         contentMd,
         summary: summary.trim() === "" ? null : summary,
+        unlisted,
       });
       if (!result.ok) {
         toast.error(result.error);
@@ -208,6 +211,11 @@ export function PostEditor({
           placeholder="목록 카드에 보여줄 한두 문장"
         />
       </div>
+
+      <label className="flex items-center gap-2 text-sm">
+        <Checkbox checked={unlisted} onCheckedChange={(v) => setUnlisted(v === true)} />
+        링크로만 접속 가능 (목록/검색/태그/시리즈/사이트맵/RSS에서 제외, 직접 링크로는 계속 접근 가능)
+      </label>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">

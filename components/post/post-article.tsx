@@ -29,7 +29,7 @@ export async function PostArticle({ post }: { post: typeof posts.$inferSelect })
   const [embedPostCards, embedSeriesRows, embedSeriesPosts] = await Promise.all([
     listPublicPostCardsBySlugs(embedRequests.postSlugs),
     listSeriesByIds(embedRequests.seriesIds),
-    listSeriesPostsBySeriesIds(embedRequests.seriesIds),
+    listSeriesPostsBySeriesIds(embedRequests.seriesIds, false),
   ]);
 
   const seriesPostsMap = new Map<number, { postId: number; title: string; slug: string }[]>();

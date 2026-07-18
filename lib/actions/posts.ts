@@ -41,7 +41,7 @@ export async function renderPostPreview(
   const [postCards, seriesRows, seriesPostsRows] = await Promise.all([
     listPublicPostCardsBySlugs(requests.postSlugs),
     listSeriesByIds(requests.seriesIds),
-    listSeriesPostsBySeriesIds(requests.seriesIds),
+    listSeriesPostsBySeriesIds(requests.seriesIds, true),
   ]);
   const seriesPostsMap = new Map<number, { postId: number; title: string; slug: string | null }[]>();
   for (const row of seriesPostsRows) {
@@ -73,6 +73,8 @@ export interface SavePostInput {
   contentMd: string;
   /** 목록 카드용 요약. 비우면 본문 발췌로 대체 표시 */
   summary?: string | null;
+  /** true면 목록/검색/태그/시리즈/사이트맵/RSS에서 제외되고 직접 링크로만 접근 가능 */
+  unlisted?: boolean;
 }
 
 export type SavePostResult =
@@ -152,6 +154,7 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
       slug: slugResult.slug,
       contentMd: input.contentMd,
       summary: input.summary?.trim() || null,
+      unlisted: input.unlisted ?? false,
       updatedAt: now,
     };
     const onSuccess = parsed.ok

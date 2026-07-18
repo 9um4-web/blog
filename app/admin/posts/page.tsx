@@ -49,11 +49,14 @@ export default async function AdminPostsPage() {
                 {formatDateTimeShort(post.updatedAt, timeZone)}
               </TableCell>
               <TableCell>
-                {post.parseError ? (
-                  <Badge variant="destructive">파싱 실패</Badge>
-                ) : (
-                  <Badge variant="secondary">정상</Badge>
-                )}
+                <div className="flex flex-wrap gap-1">
+                  {post.parseError ? (
+                    <Badge variant="destructive">파싱 실패</Badge>
+                  ) : (
+                    <Badge variant="secondary">정상</Badge>
+                  )}
+                  {post.unlisted && <Badge variant="outline">링크 전용</Badge>}
+                </div>
               </TableCell>
               <TableCell>
                 <PostDeleteButton postId={post.id} title={post.title} />

@@ -8,7 +8,7 @@ export default async function AdminSeriesPage() {
   const seriesList = await Promise.all(
     seriesRows.map(async (s) => ({
       ...s,
-      posts: (await listSeriesPosts(s.id)).map((p) => ({
+      posts: (await listSeriesPosts(s.id, true)).map((p) => ({
         postId: p.postId,
         title: p.title,
         order: p.order,
