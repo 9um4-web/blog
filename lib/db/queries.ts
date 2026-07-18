@@ -12,6 +12,7 @@ import {
   tags,
 } from "@/lib/db/schema";
 import { excerptFromMarkdown } from "@/lib/domain/markdown";
+import { mergeNavItems, type NavItem, type StoredNavEntry } from "@/lib/nav-items";
 import { DEFAULT_TIMEZONE } from "@/lib/timezones";
 
 // ---------- 포스트 ----------
@@ -227,6 +228,28 @@ export async function getSiteSettings(): Promise<SiteConfig> {
     siteFont: map.get("site_font") || "geist",
     timeZone: map.get("site_timezone") || DEFAULT_TIMEZONE,
   };
+}
+
+/**
+ * 헤더 내비게이션 전체 목록 (disabled 포함). 관리 화면은 이걸 그대로 쓰고,
+ * 공개 헤더는 이 중 enabled만 걸러서 렌더한다 (lib/nav-items.ts 참고).
+ */
+export async function getNavItems(): Promise<NavItem[]> {
+  const [row] = await db.select().from(settings).where(eq(settings.key, "nav_items"));
+  let stored: StoredNavEntry[] = [];
+  if (row?.value) {
+    try {
+      const parsed = JSON.parse(row.value);
+      if (Array.isArray(parsed)) stored = parsed;
+    } catch {
+      stored = [];
+    }
+  }
+  const seriesList = await db
+    .select({ id: series.id, slug: series.slug, name: series.name })
+    .from(series)
+    .orderBy(asc(series.name));
+  return mergeNavItems(stored, seriesList);
 }
 
 // ---------- 이미지 ----------

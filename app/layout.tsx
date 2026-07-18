@@ -5,7 +5,7 @@ import { fontVariableClasses } from "@/app/fonts";
 import { SOCIAL_PLATFORMS } from "@/components/social-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Toaster } from "@/components/ui/sonner";
-import { getSiteName, getSiteSettings } from "@/lib/db/queries";
+import { getNavItems, getSiteName, getSiteSettings } from "@/lib/db/queries";
 import "./globals.css";
 
 // DB 기반 콘텐츠라 빌드 시점 프리렌더 대신 요청 시점 렌더링 사용
@@ -28,8 +28,12 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { siteName, siteEmail, social, siteFont } = await getSiteSettings();
+  const [{ siteName, siteEmail, social, siteFont }, navItems] = await Promise.all([
+    getSiteSettings(),
+    getNavItems(),
+  ]);
   const socialLinks = SOCIAL_PLATFORMS.filter(({ key }) => social[key]);
+  const enabledNavItems = navItems.filter((item) => item.enabled);
 
   return (
     <html
@@ -46,18 +50,11 @@ export default async function RootLayout({
                 {siteName}
               </Link>
               <nav className="flex items-center gap-4 text-sm text-muted-foreground">
-                <Link href="/posts" className="hover:text-foreground">
-                  글 목록
-                </Link>
-                <Link href="/tags" className="hover:text-foreground">
-                  태그
-                </Link>
-                <Link href="/series" className="hover:text-foreground">
-                  시리즈
-                </Link>
-                <Link href="/guestbook" className="hover:text-foreground">
-                  방명록
-                </Link>
+                {enabledNavItems.map((item) => (
+                  <Link key={item.id} href={item.href} className="hover:text-foreground">
+                    {item.label}
+                  </Link>
+                ))}
               </nav>
               <div className="ml-auto flex items-center gap-2">
                 <form action="/search" className="hidden sm:block">

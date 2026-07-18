@@ -30,6 +30,7 @@ describe("post embeds", () => {
       seriesCards: [
         {
           id: 7,
+          slug: "series-a",
           name: "시리즈 A",
           description: "설명",
           isCompleted: false,

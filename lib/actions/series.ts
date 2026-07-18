@@ -12,6 +12,9 @@ import type { ActionResult } from "./tags";
 function revalidateSeriesPages() {
   revalidatePath("/admin/series");
   revalidatePath("/series");
+  // 헤더 내비게이션(nav_items)은 루트 레이아웃에 있으므로 전체 무효화
+  // (시리즈 이름 변경/삭제가 헤더 메뉴 표시에 영향을 줄 수 있음)
+  revalidatePath("/", "layout");
 }
 
 export async function createSeries(name: string, description: string | null, slug?: string): Promise<ActionResult> {
@@ -31,7 +34,7 @@ export async function createSeries(name: string, description: string | null, slu
   try {
     await db.insert(series).values({ name: trimmed, description, slug: finalSlug });
   } catch (err) {
-    if ((err as any).constraint === "series_slug_unique") {
+    if ((err as { constraint?: string }).constraint === "series_slug_unique") {
       return { ok: false, error: "이미 존재하는 슬러그입니다." };
     }
     throw err;
@@ -42,7 +45,12 @@ export async function createSeries(name: string, description: string | null, slu
 
 export async function updateSeries(
   id: number,
-  patch: { name?: string; description?: string | null; isCompleted?: boolean; slug?: string },
+  patch: {
+    name?: string;
+    description?: string | null;
+    isCompleted?: boolean;
+    slug?: string;
+  },
 ): Promise<ActionResult> {
   await requireAdmin();
   if (patch.name !== undefined && patch.name.trim().length === 0) {
@@ -69,7 +77,7 @@ export async function updateSeries(
       .set(updateData)
       .where(eq(series.id, id));
   } catch (err) {
-    if ((err as any).constraint === "series_slug_unique") {
+    if ((err as { constraint?: string }).constraint === "series_slug_unique") {
       return { ok: false, error: "이미 존재하는 슬러그입니다." };
     }
     throw err;

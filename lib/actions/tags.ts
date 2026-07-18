@@ -76,7 +76,7 @@ export async function createTag(
     });
   } catch (err) {
     if (isUniqueViolation(err)) {
-      if ((err as any).constraint === "tag_slug_unique") {
+      if ((err as { constraint?: string }).constraint === "tag_slug_unique") {
         return { ok: false, error: "이미 존재하는 슬러그입니다." };
       }
       return { ok: false, error: "같은 부모 아래 동일한 이름의 태그가 이미 있습니다." };
@@ -93,7 +93,7 @@ export async function renameTag(tagId: number, name: string, slug?: string): Pro
   const trimmed = name.trim();
   if (trimmed.length === 0) return { ok: false, error: "이름을 입력해 주세요." };
 
-  let patch: { name: string; slug?: string } = { name: trimmed };
+  const patch: { name: string; slug?: string } = { name: trimmed };
   if (slug && slug.trim()) {
     const val = validateSlug(slug, []);
     if (!val.ok) return { ok: false, error: "유효하지 않은 슬러그입니다." };
@@ -104,7 +104,7 @@ export async function renameTag(tagId: number, name: string, slug?: string): Pro
     await db.update(tags).set(patch).where(eq(tags.id, tagId));
   } catch (err) {
     if (isUniqueViolation(err)) {
-      if ((err as any).constraint === "tag_slug_unique") {
+      if ((err as { constraint?: string }).constraint === "tag_slug_unique") {
         return { ok: false, error: "이미 존재하는 슬러그입니다." };
       }
       return { ok: false, error: "같은 부모 아래 동일한 이름의 태그가 이미 있습니다." };
