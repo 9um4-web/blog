@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { updateSiteSettings } from "@/lib/actions/settings";
 import { FONT_OPTIONS } from "@/lib/site-fonts";
+import { TIMEZONE_OPTIONS } from "@/lib/timezones";
 import { SOCIAL_PLATFORMS, type SocialKey } from "@/components/social-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ export function SettingsForm({
   social,
   giscus,
   siteFont,
+  timeZone,
 }: {
   siteName: string;
   siteEmail: string | null;
@@ -41,6 +43,7 @@ export function SettingsForm({
   social: Record<SocialKey, string | null>;
   giscus: Record<GiscusFieldKey, string> | null;
   siteFont: string;
+  timeZone: string;
 }) {
   const router = useRouter();
   const [name, setName] = useState(siteName);
@@ -59,6 +62,7 @@ export function SettingsForm({
     categoryId: giscus?.categoryId ?? "",
   });
   const [font, setFont] = useState(siteFont);
+  const [tz, setTz] = useState(timeZone);
   const [pending, startTransition] = useTransition();
 
   const onSave = () => {
@@ -70,6 +74,7 @@ export function SettingsForm({
         social: socialUrls,
         giscus: giscusValues,
         siteFont: font,
+        timeZone: tz,
       });
       if (result.ok) {
         toast.success("저장했습니다.");
@@ -124,6 +129,25 @@ export function SettingsForm({
         <p className="text-xs text-muted-foreground">
           사이트 전체에 적용됩니다. 한글 글꼴(Pretendard 등)은 셀프호스팅되어 외부
           요청이 없습니다.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label>표시 타임존</Label>
+        <Select value={tz} onValueChange={setTz}>
+          <SelectTrigger className="w-56">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {TIMEZONE_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          글 작성일·수정일 등 사이트에 표시되는 모든 날짜/시간에 적용됩니다.
         </p>
       </div>
 

@@ -1,9 +1,5 @@
 import Link from "next/link";
-
-const dateTimeFmt = new Intl.DateTimeFormat("ko-KR", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
+import { formatDateTime } from "@/lib/format-date";
 
 interface PostListItem {
   id: number;
@@ -14,7 +10,7 @@ interface PostListItem {
   summary: string;
 }
 
-export function PostList({ posts }: { posts: PostListItem[] }) {
+export function PostList({ posts, timeZone }: { posts: PostListItem[]; timeZone: string }) {
   if (posts.length === 0) {
     return <p className="text-sm text-muted-foreground">아직 포스트가 없습니다.</p>;
   }
@@ -32,7 +28,7 @@ export function PostList({ posts }: { posts: PostListItem[] }) {
                 dateTime={post.updatedAt.toISOString()}
                 className="shrink-0 text-xs text-muted-foreground"
               >
-                {dateTimeFmt.format(post.updatedAt)}
+                {formatDateTime(post.updatedAt, timeZone)}
               </time>
             </div>
             {post.summary && (

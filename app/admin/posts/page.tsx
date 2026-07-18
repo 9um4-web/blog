@@ -10,17 +10,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { listPostsForAdmin } from "@/lib/db/queries";
+import { getSiteSettings, listPostsForAdmin } from "@/lib/db/queries";
+import { formatDateTimeShort } from "@/lib/format-date";
 
 export const metadata = { title: "포스트 관리" };
 
-const dateFmt = new Intl.DateTimeFormat("ko-KR", {
-  dateStyle: "short",
-  timeStyle: "short",
-});
-
 export default async function AdminPostsPage() {
-  const posts = await listPostsForAdmin();
+  const [posts, { timeZone }] = await Promise.all([listPostsForAdmin(), getSiteSettings()]);
 
   return (
     <div>
@@ -50,7 +46,7 @@ export default async function AdminPostsPage() {
               </TableCell>
               <TableCell className="text-muted-foreground">{post.slug}</TableCell>
               <TableCell className="text-muted-foreground">
-                {dateFmt.format(post.updatedAt)}
+                {formatDateTimeShort(post.updatedAt, timeZone)}
               </TableCell>
               <TableCell>
                 {post.parseError ? (

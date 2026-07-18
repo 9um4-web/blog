@@ -1,8 +1,9 @@
+import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PostList } from "@/components/post/post-list";
-import { Button } from "@/components/ui/button";
-import { getTagById, listPostsByTag } from "@/lib/db/queries";
+import { Badge } from "@/components/ui/badge";
+import { getSiteSettings, getTagById, listPostsByTag } from "@/lib/db/queries";
 
 /**
  * 태그 페이지. "하위 태그 포함"은 저장 속성이 아닌 뷰 옵션 —
@@ -23,19 +24,29 @@ export default async function TagPage({
   if (!tag) notFound();
 
   const includeDescendants = sub !== "0";
-  const posts = await listPostsByTag(tagId, includeDescendants);
+  const [posts, { timeZone }] = await Promise.all([
+    listPostsByTag(tagId, includeDescendants),
+    getSiteSettings(),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">태그: {tag.name}</h1>
-        <Button asChild variant="outline" size="sm">
-          <Link href={includeDescendants ? `/tag/${tagId}?sub=0` : `/tag/${tagId}`}>
-            하위 태그 {includeDescendants ? "포함" : "제외"} — 전환
-          </Link>
-        </Button>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold">{tag.name}</h1>
+          <Badge variant="secondary" className="rounded-full">
+            {posts.length}
+          </Badge>
+        </div>
+        <Link
+          href={includeDescendants ? `/tag/${tagId}?sub=0` : `/tag/${tagId}`}
+          className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <ChevronDown className="size-3" />
+          하위 태그 {includeDescendants ? "포함" : "제외"}
+        </Link>
       </div>
-      <PostList posts={posts} />
+      <PostList posts={posts} timeZone={timeZone} />
     </div>
   );
 }

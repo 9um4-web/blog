@@ -2,9 +2,8 @@ import "katex/dist/katex.min.css";
 import { getSiteSettings, listSeriesOfPost, listTagsOfPost } from "@/lib/db/queries";
 import type { posts } from "@/lib/db/schema";
 import { renderPostHtml } from "@/lib/domain/render";
+import { formatDate } from "@/lib/format-date";
 import { PostView } from "./post-view";
-
-const dateFmt = new Intl.DateTimeFormat("ko-KR", { dateStyle: "long" });
 
 export async function PostArticle({ post }: { post: typeof posts.$inferSelect }) {
   const [html, seriesList, tagList, config] = await Promise.all([
@@ -24,7 +23,7 @@ export async function PostArticle({ post }: { post: typeof posts.$inferSelect })
         html={html}
         headingTree={post.headingTree ?? []}
         title={post.title}
-        updatedLabel={dateFmt.format(post.updatedAt)}
+        updatedLabel={formatDate(post.updatedAt, config.timeZone)}
         updatedIso={post.updatedAt.toISOString()}
         series={seriesList.map((s) => ({
           seriesId: s.seriesId,

@@ -1,7 +1,7 @@
 import { PostList } from "@/components/post/post-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { searchPublicPosts } from "@/lib/db/queries";
+import { getSiteSettings, searchPublicPosts } from "@/lib/db/queries";
 
 export const metadata = { title: "검색" };
 
@@ -12,7 +12,10 @@ export default async function SearchPage({
 }) {
   const { q } = await searchParams;
   const query = q?.trim() ?? "";
-  const results = query.length > 0 ? await searchPublicPosts(query) : null;
+  const [results, { timeZone }] = await Promise.all([
+    query.length > 0 ? searchPublicPosts(query) : Promise.resolve(null),
+    getSiteSettings(),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4">
@@ -35,7 +38,7 @@ export default async function SearchPage({
             “{query}” 검색 결과 {results.length}건
             {results.length === 50 && " (최대 50건 표시)"}
           </p>
-          <PostList posts={results} />
+          <PostList posts={results} timeZone={timeZone} />
         </>
       )}
     </div>

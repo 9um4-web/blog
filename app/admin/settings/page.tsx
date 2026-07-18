@@ -4,7 +4,7 @@ import { getSiteSettings } from "@/lib/db/queries";
 export const metadata = { title: "설정" };
 
 export default async function AdminSettingsPage() {
-  const { siteName, siteEmail, showSummaryOnPost, social, giscus, siteFont } =
+  const { siteName, siteEmail, showSummaryOnPost, social, giscus, siteFont, timeZone } =
     await getSiteSettings();
   return (
     <div>
@@ -16,6 +16,7 @@ export default async function AdminSettingsPage() {
         social={social}
         giscus={giscus}
         siteFont={siteFont}
+        timeZone={timeZone}
       />
     </div>
   );

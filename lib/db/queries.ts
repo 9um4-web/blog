@@ -13,6 +13,7 @@ import {
   tags,
 } from "@/lib/db/schema";
 import { excerptFromMarkdown } from "@/lib/domain/markdown";
+import { DEFAULT_TIMEZONE } from "@/lib/timezones";
 
 // ---------- 포스트 ----------
 
@@ -159,6 +160,8 @@ export interface SiteConfig {
   giscus: GiscusConfig | null;
   /** 사이트 글꼴 (app/fonts.ts의 FONT_OPTIONS 값, 기본 geist) */
   siteFont: string;
+  /** 날짜/시간 표시 타임존 (IANA 이름, 기본 Asia/Seoul) */
+  timeZone: string;
 }
 
 /** 레이아웃/포스트에서 쓰는 사이트 설정 일괄 조회 (setting 테이블은 작아 전체 조회) */
@@ -193,6 +196,7 @@ export async function getSiteSettings(): Promise<SiteConfig> {
     },
     giscus,
     siteFont: map.get("site_font") || "geist",
+    timeZone: map.get("site_timezone") || DEFAULT_TIMEZONE,
   };
 }
 

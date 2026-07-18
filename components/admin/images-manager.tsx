@@ -5,6 +5,7 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 import { deleteImage } from "@/lib/actions/images";
 import { imageMarkdown, imagePath } from "@/lib/domain/image";
+import { formatDateTimeShort } from "@/lib/format-date";
 import { ImageUploader } from "@/components/admin/image-uploader";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,9 +19,8 @@ import {
 
 interface ImagesManagerProps {
   images: { id: number; filename: string; mimeType: string; size: number; createdAt: Date }[];
+  timeZone: string;
 }
-
-const dateFmt = new Intl.DateTimeFormat("ko-KR", { dateStyle: "short", timeStyle: "short" });
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`;
@@ -28,7 +28,7 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(2)}MB`;
 }
 
-export function ImagesManager({ images }: ImagesManagerProps) {
+export function ImagesManager({ images, timeZone }: ImagesManagerProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -92,7 +92,7 @@ export function ImagesManager({ images }: ImagesManagerProps) {
               <TableCell className="font-mono text-xs">{image.filename}</TableCell>
               <TableCell className="text-muted-foreground">{formatSize(image.size)}</TableCell>
               <TableCell className="text-muted-foreground">
-                {dateFmt.format(image.createdAt)}
+                {formatDateTimeShort(image.createdAt, timeZone)}
               </TableCell>
               <TableCell className="space-x-1">
                 <Button

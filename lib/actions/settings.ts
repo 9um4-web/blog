@@ -3,6 +3,7 @@
 import { sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { isFontValue } from "@/lib/site-fonts";
+import { isTimezoneValue } from "@/lib/timezones";
 import { db } from "@/lib/db";
 import { settings } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
@@ -25,6 +26,7 @@ export interface SiteSettingsInput {
     categoryId: string;
   };
   siteFont: string;
+  timeZone: string;
 }
 
 /** 빈 값이면 통과(=숨김), 값이 있으면 http(s) URL만 허용 */
@@ -77,6 +79,9 @@ export async function updateSiteSettings(input: SiteSettingsInput): Promise<Acti
   if (!isFontValue(input.siteFont)) {
     return { ok: false, error: "지원하지 않는 글꼴입니다." };
   }
+  if (!isTimezoneValue(input.timeZone)) {
+    return { ok: false, error: "지원하지 않는 타임존입니다." };
+  }
 
   await db
     .insert(settings)
@@ -88,6 +93,7 @@ export async function updateSiteSettings(input: SiteSettingsInput): Promise<Acti
       ...socialValues,
       ...giscusValues,
       { key: "site_font", value: input.siteFont },
+      { key: "site_timezone", value: input.timeZone },
     ])
     .onConflictDoUpdate({
       target: settings.key,
