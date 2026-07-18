@@ -1,11 +1,8 @@
 import Link from "next/link";
-import { listAllTags, listNamespaces } from "@/lib/db/queries";
-import { buildTagTree, type TagTreeNode } from "@/lib/domain/tag-tree";
-import type { tags } from "@/lib/db/schema";
+import { listRootTags, listTagsByRoot } from "@/lib/db/queries";
+import { buildTagTree, type TagTreeNode, type TagRow } from "@/lib/domain/tag-tree";
 
 export const metadata = { title: "태그" };
-
-type TagRow = typeof tags.$inferSelect;
 
 function TagTreeList({ nodes }: { nodes: TagTreeNode<TagRow>[] }) {
   return (
@@ -13,7 +10,7 @@ function TagTreeList({ nodes }: { nodes: TagTreeNode<TagRow>[] }) {
       {nodes.map((node) => (
         <li key={node.tag.id}>
           <Link
-            href={`/tag/${node.tag.id}`}
+            href={`/tag/${node.tag.slug}`}
             className="text-sm text-muted-foreground hover:text-foreground hover:underline"
           >
             {node.tag.name}
@@ -30,20 +27,21 @@ function TagTreeList({ nodes }: { nodes: TagTreeNode<TagRow>[] }) {
 }
 
 export default async function TagsPage() {
-  const [nsList, allTags] = await Promise.all([listNamespaces(), listAllTags()]);
+  const rootTags = await listRootTags();
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4">
       <h1 className="mb-6 text-2xl font-bold">태그</h1>
-      {nsList.length === 0 && (
+      {rootTags.length === 0 && (
         <p className="text-sm text-muted-foreground">아직 태그가 없습니다.</p>
       )}
       <div className="space-y-8">
-        {nsList.map((ns) => {
-          const tree = buildTagTree(allTags.filter((t) => t.namespaceId === ns.id));
+        {rootTags.map(async (root) => {
+          const childRows = await listTagsByRoot(root.id);
+          const tree = buildTagTree(childRows);
           return (
-            <section key={ns.id}>
-              <h2 className="mb-3 text-lg font-semibold">{ns.name}</h2>
+            <section key={root.id}>
+              <h2 className="mb-3 text-lg font-semibold">{root.name}</h2>
               {tree.length > 0 ? (
                 <TagTreeList nodes={tree} />
               ) : (

@@ -107,6 +107,24 @@ describe("renderPostHtml", () => {
     expect(html).toContain("잘못된 영상 ID");
   });
 
+  it("::post{slug=...}를 임베드 placeholder로 변환한다", async () => {
+    const html = await renderPostHtml("::post{slug=hello-world}");
+    expect(html).toContain('data-embed="post"');
+    expect(html).toContain('data-post-slug="hello-world"');
+  });
+
+  it("::series{id=...}를 임베드 placeholder로 변환한다", async () => {
+    const html = await renderPostHtml("::series{id=12}");
+    expect(html).toContain('data-embed="series"');
+    expect(html).toContain('data-series-id="12"');
+  });
+
+  it("잘못된 post/series 임베드 인자는 안내 문구로 대체한다", async () => {
+    const html = await renderPostHtml(["::post{slug=한글}", "::series{id=abc}"].join("\n\n"));
+    expect(html).toContain("잘못된 slug");
+    expect(html).toContain("잘못된 id");
+  });
+
   it(":::note 콜아웃을 기본 제목과 함께 렌더한다", async () => {
     const html = await renderPostHtml(":::note\n내용 문단입니다.\n:::");
     expect(html).toContain('class="callout callout-note"');

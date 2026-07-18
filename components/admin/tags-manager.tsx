@@ -4,12 +4,9 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
-  createNamespace,
   createTag,
-  deleteNamespace,
   deleteTag,
   moveTag,
-  renameNamespace,
   renameTag,
   type ActionResult,
 } from "@/lib/actions/tags";
@@ -27,20 +24,18 @@ import { Separator } from "@/components/ui/separator";
 
 interface TagData {
   id: number;
-  namespaceId: number;
   parentTagId: number | null;
   name: string;
+  slug: string;
 }
 
 interface TagsManagerProps {
-  namespaces: { id: number; name: string }[];
   tags: TagData[];
 }
 
 type EditState =
-  | { kind: "rename-ns"; nsId: number }
   | { kind: "rename-tag"; tagId: number }
-  | { kind: "add-child"; nsId: number; parentId: number | null }
+  | { kind: "add-child"; parentId: number | null }
   | { kind: "move"; tagId: number }
   | null;
 
@@ -61,12 +56,12 @@ function subtreeIds(nodes: TagTreeNode<TagData>[], tagId: number): Set<number> {
   return result;
 }
 
-export function TagsManager({ namespaces, tags }: TagsManagerProps) {
+export function TagsManager({ tags }: TagsManagerProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [edit, setEdit] = useState<EditState>(null);
   const [text, setText] = useState("");
-  const [newNsName, setNewNsName] = useState("");
+  const [slug, setSlug] = useState("");
 
   const run = (action: () => Promise<ActionResult>) => {
     startTransition(async () => {
@@ -83,13 +78,13 @@ export function TagsManager({ namespaces, tags }: TagsManagerProps) {
 
   const renderTagNode = (
     node: TagTreeNode<TagData>,
-    nsId: number,
     tree: TagTreeNode<TagData>[],
   ) => {
     const tag = node.tag;
+    const isRoot = tag.parentTagId === null;
     const excluded = edit?.kind === "move" && edit.tagId === tag.id ? subtreeIds(tree, tag.id) : null;
     const moveCandidates = excluded
-      ? tags.filter((t) => t.namespaceId === nsId && !excluded.has(t.id))
+      ? tags.filter((t) => !excluded.has(t.id) && t.id !== tag.id)
       : [];
 
     return (
@@ -102,8 +97,9 @@ export function TagsManager({ namespaces, tags }: TagsManagerProps) {
               size="sm"
               className="h-6 px-1.5 text-xs"
               onClick={() => {
-                setEdit({ kind: "add-child", nsId, parentId: tag.id });
+                setEdit({ kind: "add-child", parentId: tag.id });
                 setText("");
+                setSlug("");
               }}
             >
               +하위
@@ -115,9 +111,10 @@ export function TagsManager({ namespaces, tags }: TagsManagerProps) {
               onClick={() => {
                 setEdit({ kind: "rename-tag", tagId: tag.id });
                 setText(tag.name);
+                setSlug(tag.slug || "");
               }}
             >
-              이름
+              수정
             </Button>
             <Button
               variant="ghost"
@@ -140,21 +137,25 @@ export function TagsManager({ namespaces, tags }: TagsManagerProps) {
         </div>
 
         {edit?.kind === "rename-tag" && edit.tagId === tag.id && (
-          <InlineInput
-            value={text}
-            onChange={setText}
+          <InlineTagInput
+            name={text}
+            slug={slug}
+            onNameChange={setText}
+            onSlugChange={setSlug}
             pending={pending}
-            onSubmit={() => run(() => renameTag(tag.id, text))}
+            onSubmit={() => run(() => renameTag(tag.id, text, slug))}
             onCancel={() => setEdit(null)}
           />
         )}
         {edit?.kind === "add-child" && edit.parentId === tag.id && (
-          <InlineInput
-            value={text}
-            onChange={setText}
+          <InlineTagInput
+            name={text}
+            slug={slug}
+            onNameChange={setText}
+            onSlugChange={setSlug}
             placeholder="새 하위 태그 이름"
             pending={pending}
-            onSubmit={() => run(() => createTag(nsId, tag.id, text))}
+            onSubmit={() => run(() => createTag(tag.id, text, slug))}
             onCancel={() => setEdit(null)}
           />
         )}
@@ -185,109 +186,56 @@ export function TagsManager({ namespaces, tags }: TagsManagerProps) {
 
         {node.children.length > 0 && (
           <ul className="ml-4 mt-1 space-y-1 border-l pl-3">
-            {node.children.map((child) => renderTagNode(child, nsId, tree))}
+            {node.children.map((child) => renderTagNode(child, tree))}
           </ul>
         )}
       </li>
     );
   };
 
+  const tree = buildTagTree(tags);
+
   return (
     <div className="space-y-8">
       <div className="flex items-end gap-2">
-        <div className="space-y-1">
-          <p className="text-sm font-medium">새 네임스페이스</p>
-          <Input
-            value={newNsName}
-            onChange={(e) => setNewNsName(e.target.value)}
-            placeholder="예: 주제, 언어"
-            className="w-56"
-          />
-        </div>
         <Button
-          disabled={pending || newNsName.trim() === ""}
-          onClick={() =>
-            run(async () => {
-              const r = await createNamespace(newNsName);
-              if (r.ok) setNewNsName("");
-              return r;
-            })
-          }
+          onClick={() => {
+            setEdit({ kind: "add-child", parentId: null });
+            setText("");
+            setSlug("");
+          }}
         >
-          추가
+          + 루트 태그 추가
         </Button>
       </div>
 
       <Separator />
 
-      {namespaces.map((ns) => {
-        const tree = buildTagTree(tags.filter((t) => t.namespaceId === ns.id));
-        return (
-          <section key={ns.id}>
-            <div className="mb-2 flex items-center gap-2">
-              <h2 className="text-lg font-semibold">{ns.name}</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-1.5 text-xs"
-                onClick={() => {
-                  setEdit({ kind: "rename-ns", nsId: ns.id });
-                  setText(ns.name);
-                }}
-              >
-                이름
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-1.5 text-xs"
-                onClick={() => {
-                  setEdit({ kind: "add-child", nsId: ns.id, parentId: null });
-                  setText("");
-                }}
-              >
-                +루트 태그
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-1.5 text-xs text-destructive"
-                disabled={pending}
-                onClick={() => run(() => deleteNamespace(ns.id))}
-              >
-                삭제
-              </Button>
+      <section>
+        {edit?.kind === "add-child" && edit.parentId === null && (
+          <InlineTagInput
+            name={text}
+            slug={slug}
+            onNameChange={setText}
+            onSlugChange={setSlug}
+            placeholder="새 루트 태그 이름"
+            pending={pending}
+            onSubmit={() => run(() => createTag(null, text, slug))}
+            onCancel={() => setEdit(null)}
+          />
+        )}
+
+        <ul className="space-y-4">
+          {tree.map((node) => (
+            <div key={node.tag.id} className="p-4 border rounded-md">
+              {renderTagNode(node, tree)}
             </div>
-
-            {edit?.kind === "rename-ns" && edit.nsId === ns.id && (
-              <InlineInput
-                value={text}
-                onChange={setText}
-                pending={pending}
-                onSubmit={() => run(() => renameNamespace(ns.id, text))}
-                onCancel={() => setEdit(null)}
-              />
-            )}
-            {edit?.kind === "add-child" && edit.nsId === ns.id && edit.parentId === null && (
-              <InlineInput
-                value={text}
-                onChange={setText}
-                placeholder="새 루트 태그 이름"
-                pending={pending}
-                onSubmit={() => run(() => createTag(ns.id, null, text))}
-                onCancel={() => setEdit(null)}
-              />
-            )}
-
-            <ul className="space-y-1">
-              {tree.map((node) => renderTagNode(node, ns.id, tree))}
-            </ul>
-            {tree.length === 0 && (
-              <p className="text-sm text-muted-foreground">태그가 없습니다.</p>
-            )}
-          </section>
-        );
-      })}
+          ))}
+        </ul>
+        {tree.length === 0 && (
+          <p className="text-sm text-muted-foreground mt-4">태그가 없습니다.</p>
+        )}
+      </section>
     </div>
   );
 }
@@ -326,6 +274,66 @@ function InlineInput({
       <Button size="sm" variant="ghost" onClick={onCancel}>
         취소
       </Button>
+    </div>
+  );
+}
+
+function InlineTagInput({
+  name,
+  slug,
+  onNameChange,
+  onSlugChange,
+  onSubmit,
+  onCancel,
+  pending,
+  placeholder,
+}: {
+  name: string;
+  slug: string;
+  onNameChange: (v: string) => void;
+  onSlugChange: (v: string) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+  pending: boolean;
+  placeholder?: string;
+}) {
+  return (
+    <div className="my-1 flex flex-col gap-2 rounded-md border p-2 w-max">
+      <div className="flex items-center gap-2">
+        <span className="w-12 text-sm text-right text-muted-foreground">이름</span>
+        <Input
+          value={name}
+          onChange={(e) => onNameChange(e.target.value)}
+          placeholder={placeholder}
+          className="h-8 w-56"
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onSubmit();
+            if (e.key === "Escape") onCancel();
+          }}
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="w-12 text-sm text-right text-muted-foreground">슬러그</span>
+        <Input
+          value={slug}
+          onChange={(e) => onSlugChange(e.target.value)}
+          placeholder="자동 생성"
+          className="h-8 w-56"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onSubmit();
+            if (e.key === "Escape") onCancel();
+          }}
+        />
+      </div>
+      <div className="flex items-center justify-end gap-2 mt-1">
+        <Button size="sm" disabled={pending || name.trim() === ""} onClick={onSubmit}>
+          확인
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>
+          취소
+        </Button>
+      </div>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { renderPostPreview, savePost } from "@/lib/actions/posts";
 import { setPostTags } from "@/lib/actions/tags";
 import { syncPostSeries } from "@/lib/actions/series";
 import { buildTagTree, type TagTreeNode } from "@/lib/domain/tag-tree";
+import type { HydratedPostBodyPart } from "@/lib/post-embeds";
 import { ImageUploader } from "@/components/admin/image-uploader";
 import { PostPreview } from "@/components/admin/post-preview";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -19,9 +20,9 @@ import { Textarea } from "@/components/ui/textarea";
 
 interface TagData {
   id: number;
-  namespaceId: number;
   parentTagId: number | null;
   name: string;
+  slug: string;
 }
 
 interface PostEditorProps {
@@ -34,7 +35,6 @@ interface PostEditorProps {
     parseError: string | null;
     parsedAt: Date | null;
   } | null;
-  namespaces: { id: number; name: string }[];
   tags: TagData[];
   seriesList: { id: number; name: string }[];
   initialTagIds: number[];
@@ -54,11 +54,13 @@ function TagCheckboxTree({
     <ul className="space-y-1">
       {nodes.map((node) => (
         <li key={node.tag.id}>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={selected.has(node.tag.id)}
-              onCheckedChange={(v) => onToggle(node.tag.id, v === true)}
-            />
+          <label className={`flex items-center gap-2 text-sm ${node.tag.parentTagId === null ? "text-muted-foreground" : ""}`}>
+            {node.tag.parentTagId !== null && (
+              <Checkbox
+                checked={selected.has(node.tag.id)}
+                onCheckedChange={(v) => onToggle(node.tag.id, v === true)}
+              />
+            )}
             {node.tag.name}
           </label>
           {node.children.length > 0 && (
@@ -74,7 +76,6 @@ function TagCheckboxTree({
 
 export function PostEditor({
   post,
-  namespaces,
   tags,
   seriesList,
   initialTagIds,
@@ -88,7 +89,7 @@ export function PostEditor({
   const [contentMd, setContentMd] = useState(post?.contentMd ?? "");
   const [summary, setSummary] = useState(post?.summary ?? "");
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewHtml, setPreviewHtml] = useState("");
+  const [previewBodyParts, setPreviewBodyParts] = useState<HydratedPostBodyPart[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [tagIds, setTagIds] = useState<Set<number>>(new Set(initialTagIds));
   const [seriesIds, setSeriesIds] = useState<Set<number>>(new Set(initialSeriesIds));
@@ -142,11 +143,13 @@ export function PostEditor({
     previewTimer.current = setTimeout(async () => {
       const reqId = ++previewReqId.current;
       try {
-        const { html } = await renderPostPreview(content);
-        if (reqId === previewReqId.current) setPreviewHtml(html);
+        const { bodyParts } = await renderPostPreview(content);
+        if (reqId === previewReqId.current) setPreviewBodyParts(bodyParts);
       } catch {
         if (reqId === previewReqId.current) {
-          setPreviewHtml('<p class="text-destructive">미리보기 렌더 실패</p>');
+          setPreviewBodyParts([
+            { kind: "error", message: "미리보기 렌더 실패" },
+          ]);
         }
       } finally {
         if (reqId === previewReqId.current) setPreviewLoading(false);
@@ -242,8 +245,8 @@ export function PostEditor({
                 <span>미리보기 (제목/목차 제외, 접기·다이어그램 동작)</span>
                 {previewLoading && <span>렌더 중…</span>}
               </div>
-              {previewHtml ? (
-                <PostPreview html={previewHtml} />
+              {previewBodyParts.length > 0 ? (
+                <PostPreview bodyParts={previewBodyParts} />
               ) : (
                 <p className="text-sm text-muted-foreground">
                   본문을 입력하면 미리보기가 표시됩니다.
@@ -254,6 +257,7 @@ export function PostEditor({
         </div>
         <p className="text-xs text-muted-foreground">
           확장 문법: <code>```mermaid</code> · <code>::youtube[영상ID]</code> ·{" "}
+          <code>::post{"{slug=my-post}"}</code> · <code>::series{"{id=1}"}</code> ·{" "}
           <code>:::note[제목]</code>…<code>:::</code> 콜아웃(note/info/tip/warning/danger) ·{" "}
           <code>$수식$</code>/<code>$$블록수식$$</code> · <code>:::center</code>·
           <code>:::right</code> 정렬 · <code>:::indent{"{n=2}"}</code> 들여쓰기 ·{" "}
@@ -266,33 +270,29 @@ export function PostEditor({
       <div className="grid gap-8 md:grid-cols-2">
         <div>
           <h3 className="mb-3 font-semibold">태그</h3>
-          {namespaces.length === 0 && (
+          {tags.filter(t => t.parentTagId === null).length === 0 && (
             <p className="text-sm text-muted-foreground">
               태그가 없습니다. 태그 관리에서 먼저 만들어 주세요.
             </p>
           )}
           <div className="space-y-4">
-            {namespaces.map((ns) => {
-              const tree = buildTagTree(tags.filter((t) => t.namespaceId === ns.id));
-              if (tree.length === 0) return null;
-              return (
-                <div key={ns.id}>
-                  <p className="mb-1 text-xs font-semibold text-muted-foreground">{ns.name}</p>
-                  <TagCheckboxTree
-                    nodes={tree}
-                    selected={tagIds}
-                    onToggle={(id, checked) =>
-                      setTagIds((prev) => {
-                        const next = new Set(prev);
-                        if (checked) next.add(id);
-                        else next.delete(id);
-                        return next;
-                      })
-                    }
-                  />
-                </div>
-              );
-            })}
+            {buildTagTree(tags).map((rootNode) => (
+              <div key={rootNode.tag.id}>
+                <p className="mb-1 text-xs font-semibold text-muted-foreground">{rootNode.tag.name}</p>
+                <TagCheckboxTree
+                  nodes={rootNode.children}
+                  selected={tagIds}
+                  onToggle={(id, checked) =>
+                    setTagIds((prev) => {
+                      const next = new Set(prev);
+                      if (checked) next.add(id);
+                      else next.delete(id);
+                      return next;
+                    })
+                  }
+                />
+              </div>
+            ))}
           </div>
         </div>
 

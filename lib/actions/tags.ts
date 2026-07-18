@@ -3,8 +3,9 @@
 import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db, type Tx } from "@/lib/db";
-import { namespaces, postTags, tagClosure, tags } from "@/lib/db/schema";
+import { postTags, tagClosure, tags } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
+import { slugFromTitle, validateSlug } from "@/lib/domain/slug";
 import {
   canDeleteTag,
   closureRowsForNewTag,
@@ -27,50 +28,6 @@ function revalidateTagPages() {
   revalidatePath("/tags");
 }
 
-// ---------- 네임스페이스 ----------
-
-export async function createNamespace(name: string): Promise<ActionResult> {
-  await requireAdmin();
-  const trimmed = name.trim();
-  if (trimmed.length === 0) return { ok: false, error: "이름을 입력해 주세요." };
-  try {
-    await db.insert(namespaces).values({ name: trimmed });
-  } catch (err) {
-    if (isUniqueViolation(err)) return { ok: false, error: "이미 존재하는 네임스페이스입니다." };
-    throw err;
-  }
-  revalidateTagPages();
-  return { ok: true };
-}
-
-export async function renameNamespace(id: number, name: string): Promise<ActionResult> {
-  await requireAdmin();
-  const trimmed = name.trim();
-  if (trimmed.length === 0) return { ok: false, error: "이름을 입력해 주세요." };
-  try {
-    await db.update(namespaces).set({ name: trimmed }).where(eq(namespaces.id, id));
-  } catch (err) {
-    if (isUniqueViolation(err)) return { ok: false, error: "이미 존재하는 네임스페이스입니다." };
-    throw err;
-  }
-  revalidateTagPages();
-  return { ok: true };
-}
-
-export async function deleteNamespace(id: number): Promise<ActionResult> {
-  await requireAdmin();
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(tags)
-    .where(eq(tags.namespaceId, id));
-  if (count > 0) {
-    return { ok: false, error: "태그가 남아 있는 네임스페이스는 삭제할 수 없습니다." };
-  }
-  await db.delete(namespaces).where(eq(namespaces.id, id));
-  revalidateTagPages();
-  return { ok: true };
-}
-
 // ---------- 태그 ----------
 
 /** parent의 조상 체인(self 포함)을 closure에서 조회 */
@@ -82,9 +39,9 @@ async function ancestorsOf(tx: Tx, tagId: number) {
 }
 
 export async function createTag(
-  namespaceId: number,
   parentTagId: number | null,
   name: string,
+  slug?: string,
 ): Promise<ActionResult> {
   await requireAdmin();
   const trimmed = name.trim();
@@ -92,16 +49,26 @@ export async function createTag(
 
   try {
     await db.transaction(async (tx) => {
+      let parentSlug = "";
       if (parentTagId !== null) {
         const [parent] = await tx.select().from(tags).where(eq(tags.id, parentTagId));
         if (!parent) throw new Error("부모 태그가 존재하지 않습니다.");
-        if (parent.namespaceId !== namespaceId) {
-          throw new Error("부모 태그가 다른 네임스페이스에 있습니다.");
-        }
+        parentSlug = parent.slug;
       }
+
+      let finalSlug: string;
+      if (slug && slug.trim()) {
+        const val = validateSlug(slug, []);
+        if (!val.ok) throw new Error("유효하지 않은 슬러그입니다.");
+        finalSlug = val.slug;
+      } else {
+        const baseSlug = slugFromTitle(trimmed);
+        finalSlug = parentTagId !== null ? `${parentSlug}-${baseSlug}` : baseSlug;
+      }
+
       const [inserted] = await tx
         .insert(tags)
-        .values({ namespaceId, parentTagId, name: trimmed })
+        .values({ parentTagId, name: trimmed, slug: finalSlug })
         .returning({ id: tags.id });
 
       const parentAncestors = parentTagId !== null ? await ancestorsOf(tx, parentTagId) : [];
@@ -109,6 +76,9 @@ export async function createTag(
     });
   } catch (err) {
     if (isUniqueViolation(err)) {
+      if ((err as any).constraint === "tag_slug_unique") {
+        return { ok: false, error: "이미 존재하는 슬러그입니다." };
+      }
       return { ok: false, error: "같은 부모 아래 동일한 이름의 태그가 이미 있습니다." };
     }
     if (err instanceof Error) return { ok: false, error: err.message };
@@ -118,14 +88,25 @@ export async function createTag(
   return { ok: true };
 }
 
-export async function renameTag(tagId: number, name: string): Promise<ActionResult> {
+export async function renameTag(tagId: number, name: string, slug?: string): Promise<ActionResult> {
   await requireAdmin();
   const trimmed = name.trim();
   if (trimmed.length === 0) return { ok: false, error: "이름을 입력해 주세요." };
+
+  let patch: { name: string; slug?: string } = { name: trimmed };
+  if (slug && slug.trim()) {
+    const val = validateSlug(slug, []);
+    if (!val.ok) return { ok: false, error: "유효하지 않은 슬러그입니다." };
+    patch.slug = val.slug;
+  }
+
   try {
-    await db.update(tags).set({ name: trimmed }).where(eq(tags.id, tagId));
+    await db.update(tags).set(patch).where(eq(tags.id, tagId));
   } catch (err) {
     if (isUniqueViolation(err)) {
+      if ((err as any).constraint === "tag_slug_unique") {
+        return { ok: false, error: "이미 존재하는 슬러그입니다." };
+      }
       return { ok: false, error: "같은 부모 아래 동일한 이름의 태그가 이미 있습니다." };
     }
     throw err;
@@ -148,9 +129,6 @@ export async function moveTag(tagId: number, newParentId: number | null): Promis
       if (newParentId !== null) {
         const [parent] = await tx.select().from(tags).where(eq(tags.id, newParentId));
         if (!parent) throw new Error("새 부모 태그가 존재하지 않습니다.");
-        if (parent.namespaceId !== tag.namespaceId) {
-          throw new Error("태그 이동은 같은 네임스페이스 내에서만 가능합니다.");
-        }
       }
 
       // 순환 검사: 새 부모가 자신 또는 자신의 자손이면 거부
@@ -222,6 +200,16 @@ export async function deleteTag(tagId: number): Promise<ActionResult> {
 
 export async function setPostTags(postId: number, tagIds: number[]): Promise<ActionResult> {
   await requireAdmin();
+  if (tagIds.length > 0) {
+    const rootTags = await db
+      .select({ id: tags.id })
+      .from(tags)
+      .where(and(inArray(tags.id, tagIds), sql`${tags.parentTagId} IS NULL`));
+    if (rootTags.length > 0) {
+      return { ok: false, error: "최상위 태그(루트 태그)는 포스트에 할당할 수 없습니다." };
+    }
+  }
+
   await db.transaction(async (tx) => {
     await tx.delete(postTags).where(eq(postTags.postId, postId));
     if (tagIds.length > 0) {

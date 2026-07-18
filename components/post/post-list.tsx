@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatDateTime } from "@/lib/format-date";
+import { PostCardContent } from "./post-card-content";
 
 interface PostListItem {
   id: number;
@@ -22,18 +23,12 @@ export function PostList({ posts, timeZone }: { posts: PostListItem[]; timeZone:
             href={`/${post.slug}`}
             className="block rounded-lg border p-4 transition-colors hover:bg-accent/50"
           >
-            <div className="flex items-baseline justify-between gap-4">
-              <span className="min-w-0 truncate font-semibold">{post.title}</span>
-              <time
-                dateTime={post.updatedAt.toISOString()}
-                className="shrink-0 text-xs text-muted-foreground"
-              >
-                {formatDateTime(post.updatedAt, timeZone)}
-              </time>
-            </div>
-            {post.summary && (
-              <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{post.summary}</p>
-            )}
+            <PostCardContent
+              title={post.title}
+              summary={post.summary}
+              updatedIso={post.updatedAt.toISOString()}
+              updatedLabel={formatDateTime(post.updatedAt, timeZone)}
+            />
           </Link>
         </li>
       ))}

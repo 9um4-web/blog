@@ -5,8 +5,19 @@ import { revalidatePath } from "next/cache";
 import { db, type Tx } from "@/lib/db";
 import { posts, specialPages } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
+import {
+  listPublicPostCardsBySlugs,
+  listSeriesByIds,
+  listSeriesPostsBySeriesIds,
+} from "@/lib/db/queries";
 import { parseForSave, type HeadingNode } from "@/lib/domain/markdown";
 import { renderPostHtml } from "@/lib/domain/render";
+import {
+  hydratePostEmbedParts,
+  splitPostEmbedParts,
+  extractPostEmbedRequests,
+  type HydratedPostBodyPart,
+} from "@/lib/post-embeds";
 import {
   resolveSlugCollision,
   slugFromTitle,
@@ -21,11 +32,37 @@ import {
  */
 export async function renderPostPreview(
   contentMd: string,
-): Promise<{ html: string; headingTree: HeadingNode[] }> {
+): Promise<{ html: string; headingTree: HeadingNode[]; bodyParts: HydratedPostBodyPart[] }> {
   await requireAdmin();
   const parsed = parseForSave(contentMd);
   const html = await renderPostHtml(contentMd);
-  return { html, headingTree: parsed.ok ? parsed.headingTree : [] };
+  const embedParts = splitPostEmbedParts(html);
+  const requests = extractPostEmbedRequests(embedParts);
+  const [postCards, seriesRows, seriesPostsRows] = await Promise.all([
+    listPublicPostCardsBySlugs(requests.postSlugs),
+    listSeriesByIds(requests.seriesIds),
+    listSeriesPostsBySeriesIds(requests.seriesIds),
+  ]);
+  const seriesPostsMap = new Map<number, { postId: number; title: string; slug: string | null }[]>();
+  for (const row of seriesPostsRows) {
+    const list = seriesPostsMap.get(row.seriesId);
+    const item = { postId: row.postId, title: row.title, slug: row.slug };
+    if (list) list.push(item);
+    else seriesPostsMap.set(row.seriesId, [item]);
+  }
+
+  const bodyParts = hydratePostEmbedParts(embedParts, {
+    postCards,
+    seriesCards: seriesRows.map((series) => ({
+      id: series.id,
+      slug: series.slug,
+      name: series.name,
+      description: series.description,
+      isCompleted: series.isCompleted,
+      posts: seriesPostsMap.get(series.id) ?? [],
+    })),
+  });
+  return { html, headingTree: parsed.ok ? parsed.headingTree : [], bodyParts };
 }
 
 export interface SavePostInput {

@@ -29,28 +29,20 @@ export const posts = pgTable("post", {
   parsedAt: timestamp("parsed_at", { withTimezone: true }),
 });
 
-export const namespaces = pgTable("namespace", {
-  id: serial("id").primaryKey(),
-  // 네임스페이스는 계층 없음 (flat, 스펙 5장)
-  name: text("name").notNull().unique(),
-});
-
 export const tags = pgTable(
   "tag",
   {
     id: serial("id").primaryKey(),
-    namespaceId: integer("namespace_id")
-      .notNull()
-      .references(() => namespaces.id, { onDelete: "restrict" }),
     parentTagId: integer("parent_tag_id").references((): AnyPgColumn => tags.id, {
       onDelete: "restrict",
     }),
     name: text("name").notNull(),
+    slug: text("slug").unique().notNull(),
   },
   (t) => [
-    // 루트 태그(parent NULL)끼리도 이름 중복을 막기 위해 NULLS NOT DISTINCT (스펙 5장)
-    unique("tag_ns_parent_name_uq")
-      .on(t.namespaceId, t.parentTagId, t.name)
+    // 부모가 같은 태그끼리 이름 중복을 막기 위해 NULLS NOT DISTINCT 적용 (루트 태그 포함)
+    unique("tag_parent_name_uq")
+      .on(t.parentTagId, t.name)
       .nullsNotDistinct(),
   ],
 );
@@ -85,6 +77,7 @@ export const postTags = pgTable(
 export const series = pgTable("series", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  slug: text("slug").unique().notNull(),
   description: text("description"),
   isCompleted: boolean("is_completed").notNull().default(false),
 });

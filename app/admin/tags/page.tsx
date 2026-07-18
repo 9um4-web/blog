@@ -1,14 +1,14 @@
 import { TagsManager } from "@/components/admin/tags-manager";
-import { listAllTags, listNamespaces } from "@/lib/db/queries";
+import { listAllTags } from "@/lib/db/queries";
 
 export const metadata = { title: "태그 관리" };
 
 export default async function AdminTagsPage() {
-  const [namespaces, tags] = await Promise.all([listNamespaces(), listAllTags()]);
+  const tags = await listAllTags();
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold">태그</h1>
-      <TagsManager namespaces={namespaces} tags={tags} />
+      <TagsManager tags={tags} />
     </div>
   );
 }

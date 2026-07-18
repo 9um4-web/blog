@@ -132,9 +132,11 @@ function rehypeSectionWrap() {
   return (tree: Root) => wrapSections(tree);
 }
 
-// ---------- 커스텀 디렉티브: ::youtube[영상ID], :::note ~ ::: (콜아웃) ----------
+// ---------- 커스텀 디렉티브: ::youtube[영상ID], ::post{slug=...}, ::series{id=...}, :::note ~ ::: ----------
 
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{6,20}$/;
+const EMBED_POST_SLUG_PATTERN = /^[a-z0-9-]{1,100}$/;
+const EMBED_SERIES_ID_PATTERN = /^[1-9][0-9]*$/;
 
 /** 콜아웃 종류 → 기본 제목 */
 const CALLOUT_TYPES: Record<string, string> = {
@@ -193,6 +195,48 @@ function youtubeEmbed(node: DirectiveNode): void {
         children: [],
       },
     ],
+  };
+}
+
+function postEmbed(node: DirectiveNode): void {
+  const rawSlug = (node.attributes?.slug ?? "").trim().toLowerCase();
+
+  if (!EMBED_POST_SLUG_PATTERN.test(rawSlug)) {
+    node.data = {
+      hName: "p",
+      hChildren: [{ type: "text", value: "[post: 잘못된 slug]" }],
+    };
+    return;
+  }
+
+  node.data = {
+    hName: "div",
+    hProperties: {
+      className: ["md-embed", "md-embed-post"],
+      "data-embed": "post",
+      "data-post-slug": rawSlug,
+    },
+  };
+}
+
+function seriesEmbed(node: DirectiveNode): void {
+  const rawId = (node.attributes?.id ?? "").trim();
+
+  if (!EMBED_SERIES_ID_PATTERN.test(rawId)) {
+    node.data = {
+      hName: "p",
+      hChildren: [{ type: "text", value: "[series: 잘못된 id]" }],
+    };
+    return;
+  }
+
+  node.data = {
+    hName: "div",
+    hProperties: {
+      className: ["md-embed", "md-embed-series"],
+      "data-embed": "series",
+      "data-series-id": rawId,
+    },
   };
 }
 
@@ -258,6 +302,10 @@ function remarkCustomDirectives() {
       const directive = node as unknown as DirectiveNode;
       if (directive.type === "leafDirective" && directive.name === "youtube") {
         youtubeEmbed(directive);
+      } else if (directive.type === "leafDirective" && directive.name === "post") {
+        postEmbed(directive);
+      } else if (directive.type === "leafDirective" && directive.name === "series") {
+        seriesEmbed(directive);
       } else if (directive.type === "containerDirective") {
         if (directive.name in CALLOUT_TYPES) calloutBlock(directive);
         else if (directive.name === "center" || directive.name === "right") alignBlock(directive);

@@ -193,6 +193,18 @@ body {
   --callout-color: #ef4444;
 }
 
+/* ---------- 임베드 카드 (::post, ::series) ---------- */
+
+.post-body .md-embed-card {
+  margin-block: 1.25rem;
+}
+
+.post-body .md-embed-error {
+  margin-block: 1rem;
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

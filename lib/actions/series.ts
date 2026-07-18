@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { postSeries, series } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
+import { slugFromTitle, validateSlug } from "@/lib/domain/slug";
 import { keyAfter, keyBetween } from "@/lib/domain/ordering";
 import type { ActionResult } from "./tags";
 
@@ -13,27 +14,66 @@ function revalidateSeriesPages() {
   revalidatePath("/series");
 }
 
-export async function createSeries(name: string, description: string | null): Promise<ActionResult> {
+export async function createSeries(name: string, description: string | null, slug?: string): Promise<ActionResult> {
   await requireAdmin();
   const trimmed = name.trim();
   if (trimmed.length === 0) return { ok: false, error: "이름을 입력해 주세요." };
-  await db.insert(series).values({ name: trimmed, description });
+
+  let finalSlug: string;
+  if (slug && slug.trim()) {
+    const val = validateSlug(slug, []);
+    if (!val.ok) return { ok: false, error: "유효하지 않은 슬러그입니다." };
+    finalSlug = val.slug;
+  } else {
+    finalSlug = slugFromTitle(trimmed);
+  }
+
+  try {
+    await db.insert(series).values({ name: trimmed, description, slug: finalSlug });
+  } catch (err) {
+    if ((err as any).constraint === "series_slug_unique") {
+      return { ok: false, error: "이미 존재하는 슬러그입니다." };
+    }
+    throw err;
+  }
   revalidateSeriesPages();
   return { ok: true };
 }
 
 export async function updateSeries(
   id: number,
-  patch: { name?: string; description?: string | null; isCompleted?: boolean },
+  patch: { name?: string; description?: string | null; isCompleted?: boolean; slug?: string },
 ): Promise<ActionResult> {
   await requireAdmin();
   if (patch.name !== undefined && patch.name.trim().length === 0) {
     return { ok: false, error: "이름을 입력해 주세요." };
   }
-  await db
-    .update(series)
-    .set({ ...patch, name: patch.name?.trim() })
-    .where(eq(series.id, id));
+
+  const updateData = { ...patch };
+  if (updateData.name !== undefined) {
+    updateData.name = updateData.name.trim();
+  }
+  if (updateData.slug !== undefined) {
+    if (updateData.slug.trim().length > 0) {
+      const val = validateSlug(updateData.slug, []);
+      if (!val.ok) return { ok: false, error: "유효하지 않은 슬러그입니다." };
+      updateData.slug = val.slug;
+    } else {
+      updateData.slug = undefined; // Do not update slug if empty
+    }
+  }
+
+  try {
+    await db
+      .update(series)
+      .set(updateData)
+      .where(eq(series.id, id));
+  } catch (err) {
+    if ((err as any).constraint === "series_slug_unique") {
+      return { ok: false, error: "이미 존재하는 슬러그입니다." };
+    }
+    throw err;
+  }
   revalidateSeriesPages();
   return { ok: true };
 }

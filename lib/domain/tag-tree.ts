@@ -4,6 +4,7 @@ export interface TagRow {
   id: number;
   parentTagId: number | null;
   name: string;
+  slug: string;
 }
 
 export interface TagTreeNode<T extends TagRow = TagRow> {

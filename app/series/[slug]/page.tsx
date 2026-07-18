@@ -1,21 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { getSeriesById, listSeriesPosts } from "@/lib/db/queries";
+import { getSeriesBySlug, listSeriesPosts } from "@/lib/db/queries";
 
 export default async function SeriesPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }) {
-  const { id } = await params;
-  const seriesId = Number(id);
-  if (!Number.isInteger(seriesId)) notFound();
+  const { slug } = await params;
+  if (!slug) notFound();
 
-  const series = await getSeriesById(seriesId);
+  const series = await getSeriesBySlug(slug);
   if (!series) notFound();
 
-  const posts = await listSeriesPosts(seriesId);
+  const posts = await listSeriesPosts(series.id);
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4">

@@ -29,6 +29,20 @@
       "when": 1784291872399,
       "tag": "0003_fair_pride",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784385833601,
+      "tag": "0004_brave_ultron",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784387547633,
+      "tag": "0005_complex_hercules",
+      "breakpoints": true
     }
   ]
 }

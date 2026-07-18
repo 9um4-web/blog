@@ -30,6 +30,7 @@ interface SeriesManagerProps {
   seriesList: {
     id: number;
     name: string;
+    slug: string;
     description: string | null;
     isCompleted: boolean;
     posts: { postId: number; title: string; order: string }[];
@@ -41,6 +42,10 @@ export function SeriesManager({ seriesList, allPosts }: SeriesManagerProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [newName, setNewName] = useState("");
+  const [newSlug, setNewSlug] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editSlug, setEditSlug] = useState("");
 
   const run = (action: () => Promise<ActionResult>) => {
     startTransition(async () => {
@@ -55,19 +60,30 @@ export function SeriesManager({ seriesList, allPosts }: SeriesManagerProps) {
       <div className="flex items-end gap-2">
         <div className="space-y-1">
           <p className="text-sm font-medium">새 시리즈</p>
-          <Input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="시리즈 이름"
-            className="w-64"
-          />
+          <div className="flex gap-2">
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="시리즈 이름"
+              className="w-48"
+            />
+            <Input
+              value={newSlug}
+              onChange={(e) => setNewSlug(e.target.value)}
+              placeholder="슬러그 (자동 생성)"
+              className="w-48"
+            />
+          </div>
         </div>
         <Button
           disabled={pending || newName.trim() === ""}
           onClick={() =>
             run(async () => {
-              const r = await createSeries(newName, null);
-              if (r.ok) setNewName("");
+              const r = await createSeries(newName, null, newSlug);
+              if (r.ok) {
+                setNewName("");
+                setNewSlug("");
+              }
               return r;
             })
           }
@@ -83,7 +99,55 @@ export function SeriesManager({ seriesList, allPosts }: SeriesManagerProps) {
           <Card key={series.id}>
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
-                {series.name}
+                {editingId === series.id ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="이름"
+                      className="w-40 text-sm font-normal"
+                    />
+                    <Input
+                      value={editSlug}
+                      onChange={(e) => setEditSlug(e.target.value)}
+                      placeholder="슬러그"
+                      className="w-40 text-sm font-normal"
+                    />
+                    <Button
+                      size="sm"
+                      disabled={pending || editName.trim() === ""}
+                      onClick={() =>
+                        run(async () => {
+                          const r = await updateSeries(series.id, { name: editName, slug: editSlug });
+                          if (r.ok) setEditingId(null);
+                          return r;
+                        })
+                      }
+                    >
+                      저장
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
+                      취소
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <span>{series.name}</span>
+                    <span className="text-sm font-normal text-muted-foreground">/{series.slug}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => {
+                        setEditingId(series.id);
+                        setEditName(series.name);
+                        setEditSlug(series.slug || "");
+                      }}
+                    >
+                      수정
+                    </Button>
+                  </>
+                )}
                 {series.isCompleted && <Badge variant="secondary">완결</Badge>}
                 <label className="ml-auto flex items-center gap-2 text-sm font-normal">
                   완결

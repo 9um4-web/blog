@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PostList } from "@/components/post/post-list";
 import { Badge } from "@/components/ui/badge";
-import { getSiteSettings, getTagById, listPostsByTag } from "@/lib/db/queries";
+import { getSiteSettings, getTagBySlug, listPostsByTag } from "@/lib/db/queries";
 
 /**
  * 태그 페이지. "하위 태그 포함"은 저장 속성이 아닌 뷰 옵션 —
@@ -13,19 +13,18 @@ export default async function TagPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
   searchParams: Promise<{ sub?: string }>;
 }) {
-  const [{ id }, { sub }] = await Promise.all([params, searchParams]);
-  const tagId = Number(id);
-  if (!Number.isInteger(tagId)) notFound();
+  const [{ slug }, { sub }] = await Promise.all([params, searchParams]);
+  if (!slug) notFound();
 
-  const tag = await getTagById(tagId);
+  const tag = await getTagBySlug(slug);
   if (!tag) notFound();
 
   const includeDescendants = sub !== "0";
   const [posts, { timeZone }] = await Promise.all([
-    listPostsByTag(tagId, includeDescendants),
+    listPostsByTag(tag.id, includeDescendants),
     getSiteSettings(),
   ]);
 
@@ -39,7 +38,7 @@ export default async function TagPage({
           </Badge>
         </div>
         <Link
-          href={includeDescendants ? `/tag/${tagId}?sub=0` : `/tag/${tagId}`}
+          href={includeDescendants ? `/tag/${tag.slug}?sub=0` : `/tag/${tag.slug}`}
           className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <ChevronDown className="size-3" />

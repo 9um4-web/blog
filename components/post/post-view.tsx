@@ -7,19 +7,22 @@ import { Comments } from "@/components/comments";
 import { Badge } from "@/components/ui/badge";
 import type { HeadingNode } from "@/lib/domain/markdown";
 import type { GiscusConfig } from "@/lib/db/queries";
+import type { HydratedPostBodyPart } from "@/lib/post-embeds";
+import { PostCardContent } from "./post-card-content";
 import { renderVisibleMermaid } from "./mermaid-lazy";
+import { SeriesAccordionCard } from "./series-card-parts";
 import { Toc } from "./toc";
 
 interface PostViewProps {
-  html: string;
+  bodyParts: HydratedPostBodyPart[];
   headingTree: HeadingNode[];
   title: string;
   updatedLabel: string;
   updatedIso: string;
-  series: { seriesId: number; name: string; isCompleted: boolean }[];
+  series: { seriesId: number; name: string; slug: string; isCompleted: boolean }[];
   /** 서버에서 설정/존재 여부로 이미 걸러진 값. null이면 표시 안 함 */
   summary: string | null;
-  tags: { id: number; name: string }[];
+  tags: { id: number; name: string; slug: string }[];
   /** null이면 댓글 미설정 → 섹션 숨김 */
   giscus: GiscusConfig | null;
 }
@@ -35,7 +38,7 @@ function ancestorChain(tree: HeadingNode[], targetId: string): string[] | null {
 }
 
 export function PostView({
-  html,
+  bodyParts,
   headingTree,
   title,
   updatedLabel,
@@ -122,7 +125,7 @@ export function PostView({
           <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm text-muted-foreground">
             <div className="flex flex-wrap items-center gap-2">
               {series.map((s) => (
-                <Link key={s.seriesId} href={`/series/${s.seriesId}`}>
+                <Link key={s.seriesId} href={`/series/${s.slug}`}>
                   <Badge variant="secondary">
                     {s.name}
                     {s.isCompleted && " (완결)"}
@@ -147,8 +150,44 @@ export function PostView({
           onClick={onBodyClick}
           // prose 기본 65ch 폭 제한을 풀어 가용 영역을 전부 사용
           className="post-body prose prose-neutral dark:prose-invert max-w-none"
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
+        >
+          {bodyParts.map((part, index) => {
+            if (part.kind === "html") {
+              return <div key={`html-${index}`} dangerouslySetInnerHTML={{ __html: part.html }} />;
+            }
+            if (part.kind === "error") {
+              return (
+                <p key={`error-${index}`} className="md-embed-error">
+                  {part.message}
+                </p>
+              );
+            }
+            if (part.kind === "post-card") {
+              return (
+                <div key={`post-${index}`} className="md-embed-card not-prose">
+                  <Link
+                    href={`/${part.card.slug}`}
+                    className="block rounded-lg border p-4 no-underline transition-colors hover:bg-accent/50"
+                  >
+                    <PostCardContent title={part.card.title} summary={part.card.summary} />
+                  </Link>
+                </div>
+              );
+            }
+            return (
+              <div key={`series-${index}`} className="md-embed-card not-prose">
+                <SeriesAccordionCard
+                  id={part.series.id}
+                  slug={part.series.slug}
+                  name={part.series.name}
+                  isCompleted={part.series.isCompleted}
+                  description={part.series.description}
+                  posts={part.series.posts}
+                />
+              </div>
+            );
+          })}
+        </div>
 
         {tags.length > 0 && (
           <section className="mt-12 border-t pt-4">
@@ -167,7 +206,7 @@ export function PostView({
             {tagsOpen && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {tags.map((tag) => (
-                  <Link key={tag.id} href={`/tag/${tag.id}`}>
+                  <Link key={tag.id} href={`/tag/${tag.slug}`}>
                     <Badge variant="outline" className="hover:bg-accent">
                       {tag.name}
                     </Badge>

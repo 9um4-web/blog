@@ -5,7 +5,6 @@ import {
   getPostSeriesIds,
   getPostTagIds,
   listAllTags,
-  listNamespaces,
   listSeries,
 } from "@/lib/db/queries";
 
@@ -23,8 +22,7 @@ export default async function EditPostPage({
   const post = await getPostById(postId);
   if (!post) notFound();
 
-  const [namespaces, tags, seriesList, tagIds, seriesIds] = await Promise.all([
-    listNamespaces(),
+  const [tags, seriesList, tagIds, seriesIds] = await Promise.all([
     listAllTags(),
     listSeries(),
     getPostTagIds(postId),
@@ -36,7 +34,6 @@ export default async function EditPostPage({
       <h1 className="mb-6 text-2xl font-bold">포스트 편집</h1>
       <PostEditor
         post={post}
-        namespaces={namespaces}
         tags={tags}
         seriesList={seriesList}
         initialTagIds={tagIds}
