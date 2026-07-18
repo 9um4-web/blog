@@ -91,6 +91,15 @@ function wrapSections(root: Root): void {
     if (!isHeading) {
       if (
         child.type === "element" &&
+        child.tagName === "section" &&
+        child.properties?.dataFootnotes !== undefined
+      ) {
+        // GFM 각주 블록(remark-rehype가 문서 끝에 자동 삽입)은 특정 섹션 소속이
+        // 아니라 문서 전체에 속하므로, 마지막으로 열린 헤딩 섹션에 먹히지 않게
+        // 항상 최상위로 뺀다 — 안 그러면 그 섹션을 접었을 때 각주도 같이 숨는다.
+        result.push(child);
+      } else if (
+        child.type === "element" &&
         child.tagName === "div" &&
         child.properties?.dataFold !== undefined
       ) {
@@ -132,7 +141,8 @@ function rehypeSectionWrap() {
   return (tree: Root) => wrapSections(tree);
 }
 
-// ---------- 커스텀 디렉티브: ::youtube[영상ID], ::post{slug=...}, ::series{id=...}, :::note ~ ::: ----------
+// ---------- 커스텀 디렉티브: ::youtube[영상ID], ::post{slug=...}, ::series{id=...},
+// :postlink[표시 텍스트]{slug=...}, :::note ~ ::: ----------
 
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{6,20}$/;
 const EMBED_POST_SLUG_PATTERN = /^[a-z0-9-]{1,100}$/;
@@ -296,6 +306,37 @@ function foldBlock(node: DirectiveNode): void {
   };
 }
 
+/**
+ * :postlink[표시 텍스트]{slug=other-post} — 다른 포스트로의 인라인 링크.
+ * 문단 안에 자연스럽게 들어가야 해서 카드 임베드(::post)와 달리 텍스트
+ * 디렉티브(콜론 1개)를 쓴다. href는 slug로 바로 만들어지고(라우트가
+ * /[slug]), post-embeds.ts의 DB round-trip 없이 render.ts 안에서 즉시
+ * 해석된다 — 존재 여부는 검증하지 않는다(일반 마크다운 링크와 동일하게,
+ * 잘못된 slug면 그냥 404로 이어질 뿐).
+ */
+function postLink(node: DirectiveNode): void {
+  const label = node.children
+    .map((c) => (c.type === "text" ? (c.value ?? "") : ""))
+    .join("")
+    .trim();
+  const rawSlug = (node.attributes?.slug ?? "").trim().toLowerCase();
+
+  if (!EMBED_POST_SLUG_PATTERN.test(rawSlug)) {
+    node.data = {
+      hName: "span",
+      hProperties: { className: ["md-postlink-error"] },
+      hChildren: [{ type: "text", value: "[postlink: 잘못된 slug]" }],
+    };
+    return;
+  }
+
+  node.data = {
+    hName: "a",
+    hProperties: { href: `/${rawSlug}`, className: ["post-link"] },
+    hChildren: [{ type: "text", value: label || rawSlug }],
+  };
+}
+
 function remarkCustomDirectives() {
   return (tree: MdastRoot) => {
     visit(tree, (node) => {
@@ -306,6 +347,8 @@ function remarkCustomDirectives() {
         postEmbed(directive);
       } else if (directive.type === "leafDirective" && directive.name === "series") {
         seriesEmbed(directive);
+      } else if (directive.type === "textDirective" && directive.name === "postlink") {
+        postLink(directive);
       } else if (directive.type === "containerDirective") {
         if (directive.name in CALLOUT_TYPES) calloutBlock(directive);
         else if (directive.name === "center" || directive.name === "right") alignBlock(directive);

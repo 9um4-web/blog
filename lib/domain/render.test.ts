@@ -223,4 +223,43 @@ describe("renderPostHtml", () => {
     expect(sectionA).toContain("그대로 A 소속");
     expect(html).not.toContain("data-nofold");
   });
+
+  it("GFM 각주를 렌더하고 문서 끝에 footnotes 섹션을 만든다", async () => {
+    const html = await renderPostHtml(
+      "본문 텍스트[^1] 계속.\n\n[^1]: 각주 내용입니다.",
+    );
+    expect(html).toContain('data-footnote-ref');
+    expect(html).toContain('data-footnotes');
+    expect(html).toContain("각주 내용입니다");
+  });
+
+  it("각주 섹션은 마지막으로 열린 헤딩 섹션 안에 갇히지 않고 최상위에 위치한다", async () => {
+    const md = ["## 유일한 헤딩", "본문[^1]", "", "[^1]: 각주."].join("\n\n");
+    const html = await renderPostHtml(md);
+    const heading = /<section[^>]*data-heading-id="유일한-헤딩"[^>]*>[\s\S]*?<\/section>/.exec(
+      html,
+    )?.[0];
+    expect(heading).not.toContain("data-footnotes");
+    expect(html).toContain("data-footnotes");
+  });
+
+  it(":postlink[텍스트]{slug=...}는 제목과 무관하게 지정한 텍스트로 인라인 링크를 만든다", async () => {
+    const html = await renderPostHtml("이전 글은 :postlink[여기서 보세요]{slug=old-post} 참고.");
+    expect(html).toContain('<a href="/old-post" class="post-link">여기서 보세요</a>');
+    // 문단 안에 인라인으로 들어가야 함(블록으로 분리되면 안 됨)
+    expect(html).toMatch(/<p>[^<]*<a[^>]*class="post-link"[^>]*>[^<]*<\/a>[^<]*<\/p>/);
+  });
+
+  it(":postlink에 라벨이 없으면 slug를 텍스트로 대신 쓴다", async () => {
+    const html = await renderPostHtml(":postlink{slug=fallback-slug}");
+    expect(html).toContain(">fallback-slug</a>");
+  });
+
+  it(":postlink의 잘못된 slug는 인라인 에러로 대체되고 문단이 안 끊긴다", async () => {
+    const html = await renderPostHtml("앞 :postlink[텍스트]{slug=invalid_slug} 뒤");
+    expect(html).toContain("md-postlink-error");
+    expect(html).toContain("[postlink: 잘못된 slug]");
+    expect(html).toContain("앞");
+    expect(html).toContain("뒤");
+  });
 });

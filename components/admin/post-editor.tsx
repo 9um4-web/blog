@@ -258,10 +258,15 @@ export function PostEditor({
         <p className="text-xs text-muted-foreground">
           확장 문법: <code>```mermaid</code> · <code>::youtube[영상ID]</code> ·{" "}
           <code>::post{"{slug=my-post}"}</code> · <code>::series{"{id=1}"}</code> ·{" "}
-          <code>:::note[제목]</code>…<code>:::</code> 콜아웃(note/info/tip/warning/danger) ·{" "}
-          <code>$수식$</code>/<code>$$블록수식$$</code> · <code>:::center</code>·
-          <code>:::right</code> 정렬 · <code>:::indent{"{n=2}"}</code> 들여쓰기 ·{" "}
-          <code>:::fold{"{h=2}"}</code> 섹션 소속 지정(<code>h=none</code>이면 안 접힘)
+          <code>:postlink[표시할 텍스트]{"{slug=my-post}"}</code>(문장 안에 다른 글로
+          가는 링크, 텍스트는 자유롭게) · <code>:::note[제목]</code>…<code>:::</code>{" "}
+          콜아웃(note/info/tip/warning/danger) · <code>$수식$</code>/
+          <code>$$블록수식$$</code> · <code>[^1]</code> 각주(본문 아무 곳에{" "}
+          <code>[^1]: 각주 내용</code>을 따로 적어두면 문서 끝에 모임) ·{" "}
+          <code>:::center</code>·<code>:::right</code> 정렬 ·{" "}
+          <code>:::indent{"{n=2}"}</code> 들여쓰기 · <code>:::fold{"{h=2}"}</code>{" "}
+          섹션 소속 지정(<code>h=none</code>이면 안 접힘). <code>:::</code> 컨테이너는
+          반드시 닫는 <code>:::</code>가 있어야 합니다.
         </p>
       </div>
 

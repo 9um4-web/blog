@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import type { HeadingNode } from "@/lib/domain/markdown";
 import type { GiscusConfig } from "@/lib/db/queries";
 import type { HydratedPostBodyPart } from "@/lib/post-embeds";
+import { attachFootnotePreview } from "./footnote-preview";
 import { PostCardContent } from "./post-card-content";
 import { renderVisibleMermaid } from "./mermaid-lazy";
 import { SeriesAccordionCard } from "./series-card-parts";
@@ -62,6 +63,12 @@ export function PostView({
     const hash = decodeURIComponent(window.location.hash.slice(1));
     if (hash) document.getElementById(hash)?.scrollIntoView();
   }, [initMermaid]);
+
+  // 각주 hover(데스크톱)/탭(모바일) 미리보기 팝오버
+  useEffect(() => {
+    if (!bodyRef.current) return;
+    return attachFootnotePreview(bodyRef.current);
+  }, [bodyParts]);
 
   // 본문 헤딩 클릭 → 해당 섹션 접기/펼치기 (트리 구조 기준, 스펙 4.1)
   const onBodyClick = useCallback(

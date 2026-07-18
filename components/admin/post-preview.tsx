@@ -3,6 +3,7 @@
 import "katex/dist/katex.min.css";
 import Link from "next/link";
 import { useCallback, useEffect, useRef } from "react";
+import { attachFootnotePreview } from "@/components/post/footnote-preview";
 import { renderVisibleMermaid } from "@/components/post/mermaid-lazy";
 import { PostCardContent } from "@/components/post/post-card-content";
 import { SeriesAccordionCard } from "@/components/post/series-card-parts";
@@ -23,6 +24,11 @@ export function PostPreview({ bodyParts }: { bodyParts: HydratedPostBodyPart[] }
   useEffect(() => {
     initMermaid();
   }, [bodyParts, initMermaid]);
+
+  useEffect(() => {
+    if (!bodyRef.current) return;
+    return attachFootnotePreview(bodyRef.current);
+  }, [bodyParts]);
 
   const onBodyClick = useCallback(
     (e: React.MouseEvent) => {

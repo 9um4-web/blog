@@ -205,6 +205,61 @@ body {
   font-size: 0.9rem;
 }
 
+/* ---------- 포스트 인라인 링크 (:postlink[텍스트]{slug=...}) ---------- */
+
+.post-body .post-link {
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.post-body .md-postlink-error {
+  color: var(--destructive);
+  font-size: 0.875em;
+}
+
+/* ---------- GFM 각주 ---------- */
+
+.post-body section[data-footnotes] {
+  margin-top: 3rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.post-body section[data-footnotes] ol {
+  padding-left: 1.25rem;
+}
+
+.post-body [data-footnote-ref] {
+  text-decoration: none;
+  scroll-margin-top: 5rem;
+}
+
+.post-body [data-footnote-backref] {
+  margin-left: 0.25rem;
+  text-decoration: none;
+}
+
+/* 각주 hover/탭 미리보기 팝오버 (footnote-preview.ts가 document.body에 부착) */
+.footnote-preview {
+  position: fixed;
+  z-index: 50;
+  max-width: min(24rem, calc(100vw - 1rem));
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 2px);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.footnote-preview > :last-child {
+  margin-bottom: 0;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
