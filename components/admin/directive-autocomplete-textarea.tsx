@@ -197,6 +197,7 @@ interface OptionItem {
   sub: string;
   value: string;
   moveCursorOffset?: number;
+  thumbnail?: string;
 }
 
 function computeOptions(
@@ -228,6 +229,7 @@ function computeOptions(
       label: img.filename,
       sub: `${formatSize(img.size)} (${img.mimeType})`,
       value: `/images/${img.id}/${img.filename}`,
+      thumbnail: `/images/${img.id}/${img.filename}`,
     }));
   }
   if (next.kind === "colon") {
@@ -322,6 +324,7 @@ export function DirectiveAutocompleteTextarea({
   ...props
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
   const [match, setMatch] = useState<DirectiveMatch | null>(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const [activeIndex, setActiveIndex] = useState(0);
@@ -475,7 +478,10 @@ export function DirectiveAutocompleteTextarea({
   // 커서로 돌아와서 다시 타이핑하면 그 자리에서 다시 뜬다
   useEffect(() => {
     if (!match) return;
-    const onScroll = () => setMatch(null);
+    const onScroll = (e: Event) => {
+      if (dropdownRef.current && e.target === dropdownRef.current) return;
+      setMatch(null);
+    };
     window.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", onScroll);
     return () => {
@@ -483,6 +489,25 @@ export function DirectiveAutocompleteTextarea({
       window.removeEventListener("resize", onScroll);
     };
   }, [match]);
+
+  // 화살표 키로 항목 이동할 때 해당 항목이 스크롤 영역 밖으로 나가면 영역 내로 스크롤
+  useEffect(() => {
+    if (!match || !dropdownRef.current) return;
+    const container = dropdownRef.current;
+    const activeEl = container.children[activeIndex] as HTMLElement | undefined;
+    if (activeEl) {
+      const containerTop = container.scrollTop;
+      const containerBottom = containerTop + container.clientHeight;
+      const elemTop = activeEl.offsetTop;
+      const elemBottom = elemTop + activeEl.offsetHeight;
+
+      if (elemTop < containerTop) {
+        container.scrollTop = elemTop;
+      } else if (elemBottom > containerBottom) {
+        container.scrollTop = elemBottom - container.clientHeight;
+      }
+    }
+  }, [activeIndex, match]);
 
   const applySelection = (item: OptionItem) => {
     const el = textareaRef.current;
@@ -569,6 +594,7 @@ export function DirectiveAutocompleteTextarea({
       )}
       {match && options.length > 0 && (
         <div
+          ref={dropdownRef}
           className="fixed z-20 max-h-56 w-72 overflow-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
           style={{ top: position.top, left: position.left }}
         >
@@ -581,12 +607,23 @@ export function DirectiveAutocompleteTextarea({
                 applySelection(opt);
               }}
               onMouseEnter={() => setActiveIndex(i)}
-              className={`flex w-full flex-col items-start rounded-sm px-2 py-1.5 text-left text-sm ${
+              className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm ${
                 i === activeIndex ? "bg-accent text-accent-foreground" : ""
               }`}
             >
-              <span className="truncate font-medium">{opt.label}</span>
-              <span className="truncate text-xs text-muted-foreground">{opt.sub}</span>
+              {opt.thumbnail && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={opt.thumbnail}
+                  alt=""
+                  loading="lazy"
+                  className="size-8 rounded border object-cover bg-muted flex-shrink-0"
+                />
+              )}
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="truncate font-medium">{opt.label}</span>
+                <span className="truncate text-xs text-muted-foreground">{opt.sub}</span>
+              </div>
             </button>
           ))}
         </div>
