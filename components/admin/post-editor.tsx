@@ -8,6 +8,7 @@ import { setPostTags } from "@/lib/actions/tags";
 import { syncPostSeries } from "@/lib/actions/series";
 import { buildTagTree, type TagTreeNode } from "@/lib/domain/tag-tree";
 import type { HydratedPostBodyPart } from "@/lib/post-embeds";
+import { DirectiveAutocompleteTextarea } from "@/components/admin/directive-autocomplete-textarea";
 import { ImageUploader } from "@/components/admin/image-uploader";
 import { PostPreview } from "@/components/admin/post-preview";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -38,6 +39,8 @@ interface PostEditorProps {
   } | null;
   tags: TagData[];
   seriesList: { id: number; name: string }[];
+  /** ::post{slug=...} / :postlink{slug=...} 자동완성용 전체 포스트 목록 */
+  allPosts: { title: string; slug: string }[];
   initialTagIds: number[];
   initialSeriesIds: number[];
 }
@@ -79,6 +82,7 @@ export function PostEditor({
   post,
   tags,
   seriesList,
+  allPosts,
   initialTagIds,
   initialSeriesIds,
 }: PostEditorProps) {
@@ -241,10 +245,12 @@ export function PostEditor({
           </div>
         </div>
         <div className={previewOpen ? "grid gap-4 lg:grid-cols-2" : ""}>
-          <Textarea
+          <DirectiveAutocompleteTextarea
             id="content"
             value={contentMd}
-            onChange={(e) => onContentChange(e.target.value)}
+            onValueChange={onContentChange}
+            posts={allPosts}
+            series={seriesList}
             className="min-h-[24rem] font-mono text-sm"
           />
           {previewOpen && (

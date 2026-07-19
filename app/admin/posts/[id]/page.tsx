@@ -5,6 +5,7 @@ import {
   getPostSeriesIds,
   getPostTagIds,
   listAllTags,
+  listPostsForAdmin,
   listSeries,
 } from "@/lib/db/queries";
 
@@ -22,9 +23,10 @@ export default async function EditPostPage({
   const post = await getPostById(postId);
   if (!post) notFound();
 
-  const [tags, seriesList, tagIds, seriesIds] = await Promise.all([
+  const [tags, seriesList, allPosts, tagIds, seriesIds] = await Promise.all([
     listAllTags(),
     listSeries(),
+    listPostsForAdmin(),
     getPostTagIds(postId),
     getPostSeriesIds(postId),
   ]);
@@ -36,6 +38,9 @@ export default async function EditPostPage({
         post={post}
         tags={tags}
         seriesList={seriesList}
+        allPosts={allPosts
+          .filter((p): p is typeof p & { slug: string } => p.slug !== null)
+          .map((p) => ({ title: p.title, slug: p.slug }))}
         initialTagIds={tagIds}
         initialSeriesIds={seriesIds}
       />

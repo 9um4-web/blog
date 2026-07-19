@@ -1,12 +1,13 @@
 import { PostEditor } from "@/components/admin/post-editor";
-import { listAllTags, listSeries } from "@/lib/db/queries";
+import { listAllTags, listPostsForAdmin, listSeries } from "@/lib/db/queries";
 
 export const metadata = { title: "새 포스트" };
 
 export default async function NewPostPage() {
-  const [tags, seriesList] = await Promise.all([
+  const [tags, seriesList, allPosts] = await Promise.all([
     listAllTags(),
     listSeries(),
+    listPostsForAdmin(),
   ]);
 
   return (
@@ -16,6 +17,9 @@ export default async function NewPostPage() {
         post={null}
         tags={tags}
         seriesList={seriesList}
+        allPosts={allPosts
+          .filter((p): p is typeof p & { slug: string } => p.slug !== null)
+          .map((p) => ({ title: p.title, slug: p.slug }))}
         initialTagIds={[]}
         initialSeriesIds={[]}
       />
