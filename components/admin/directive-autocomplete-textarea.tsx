@@ -15,12 +15,20 @@ interface SeriesOption {
   name: string;
 }
 
+interface ImageOption {
+  id: number;
+  filename: string;
+  mimeType: string;
+  size: number;
+}
+
 interface DirectiveMatch {
-  kind: "post" | "series" | "colon" | "slash";
+  kind: "post" | "series" | "colon" | "slash" | "image";
   query: string;
   start: number;
   end: number;
   colonCount?: number;
+  altText?: string;
 }
 
 interface Props extends Omit<React.ComponentProps<"textarea">, "value" | "onChange"> {
@@ -28,6 +36,7 @@ interface Props extends Omit<React.ComponentProps<"textarea">, "value" | "onChan
   onValueChange: (value: string) => void;
   posts: PostOption[];
   series: SeriesOption[];
+  images: ImageOption[];
 }
 
 interface SuggestionOption {
@@ -120,6 +129,16 @@ function detectDirectiveContext(text: string, cursor: number): DirectiveMatch | 
     return { kind: "slash", query, start, end: cursor };
   }
 
+  // 5. 이미지 마크다운 URL 자동완성
+  // ! [ alt ] ( query
+  const imageMatch = /!\[([^\]\n]*)\]\(([^)\n]*)$/.exec(before);
+  if (imageMatch) {
+    const altText = imageMatch[1];
+    const query = imageMatch[2];
+    const start = cursor - query.length;
+    return { kind: "image", query, start, end: cursor, altText };
+  }
+
   return null;
 }
 
@@ -133,6 +152,29 @@ function filterPosts(posts: PostOption[], query: string): PostOption[] {
 
 function filterSeries(series: SeriesOption[], query: string): SeriesOption[] {
   return series.filter((s) => String(s.id).startsWith(query)).slice(0, 8);
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)}MB`;
+}
+
+function filterImages(images: ImageOption[], query: string): ImageOption[] {
+  const q = query.toLowerCase();
+  return images
+    .filter((img) => {
+      const path = `/images/${img.id}/${img.filename}`;
+      return img.filename.toLowerCase().includes(q) || path.toLowerCase().includes(q);
+    })
+    .sort((a, b) => {
+      const aPath = `/images/${a.id}/${a.filename}`;
+      const bPath = `/images/${b.id}/${b.filename}`;
+      const aMatch = a.filename.toLowerCase().startsWith(q) || aPath.toLowerCase().startsWith(q);
+      const bMatch = b.filename.toLowerCase().startsWith(q) || bPath.toLowerCase().startsWith(q);
+      return Number(bMatch) - Number(aMatch);
+    })
+    .slice(0, 8);
 }
 
 function filterSuggestions(options: SuggestionOption[], query: string): OptionItem[] {
@@ -161,6 +203,7 @@ function computeOptions(
   next: DirectiveMatch | null,
   posts: PostOption[],
   series: SeriesOption[],
+  images: ImageOption[],
 ): OptionItem[] {
   if (next === null) return [];
   if (next.kind === "post") {
@@ -177,6 +220,14 @@ function computeOptions(
       label: s.name,
       sub: `#${s.id}`,
       value: String(s.id),
+    }));
+  }
+  if (next.kind === "image") {
+    return filterImages(images, next.query).map((img) => ({
+      key: `${img.id}-${img.filename}`,
+      label: img.filename,
+      sub: `${formatSize(img.size)} (${img.mimeType})`,
+      value: `/images/${img.id}/${img.filename}`,
     }));
   }
   if (next.kind === "colon") {
@@ -266,6 +317,7 @@ export function DirectiveAutocompleteTextarea({
   onValueChange,
   posts,
   series,
+  images,
   className,
   ...props
 }: Props) {
@@ -370,14 +422,14 @@ export function DirectiveAutocompleteTextarea({
     }
   };
 
-  const options = computeOptions(match, posts, series);
+  const options = computeOptions(match, posts, series, images);
 
   /** match는 그대로 두고 화면상 위치만 다시 계산 — 스크롤/리사이즈 시 재사용 */
   const updatePositionFor = useCallback(
     (next: DirectiveMatch) => {
       const el = textareaRef.current;
       if (!el) return;
-      const nextOptions = computeOptions(next, posts, series);
+      const nextOptions = computeOptions(next, posts, series, images);
       if (nextOptions.length === 0) return;
 
       const coords = getCaretCoordinates(el, next.end);
@@ -405,7 +457,7 @@ export function DirectiveAutocompleteTextarea({
       );
       setPosition({ top, left });
     },
-    [posts, series],
+    [posts, series, images],
   );
 
   const refreshMatch = () => {

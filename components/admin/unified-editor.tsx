@@ -33,6 +33,7 @@ interface UnifiedEditorProps {
   onImageResize?: (lineNum: number, originalSrc: string, newWidth: string) => void;
   posts: PostOption[];
   series: SeriesOption[];
+  images: { id: number; filename: string; size: number; mimeType: string }[];
 }
 
 /**
@@ -52,6 +53,7 @@ function InlineBlockEditor({
   onDraftChange,
   posts,
   series,
+  images,
   onCommit,
   onCancel,
 }: {
@@ -59,6 +61,7 @@ function InlineBlockEditor({
   onDraftChange: (v: string) => void;
   posts: PostOption[];
   series: SeriesOption[];
+  images: { id: number; filename: string; size: number; mimeType: string }[];
   onCommit: () => void;
   onCancel: () => void;
 }) {
@@ -73,6 +76,7 @@ function InlineBlockEditor({
         onValueChange={onDraftChange}
         posts={posts}
         series={series}
+        images={images}
         autoFocus
         className="min-h-[6rem] font-mono text-sm"
         onKeyDown={(e) => {
@@ -116,6 +120,7 @@ export function UnifiedEditor({
   onImageResize,
   posts,
   series,
+  images,
 }: UnifiedEditorProps) {
   const { bodyRef, initMermaid } = usePostBodyEffects(bodyParts);
   const [session, setSession] = useState<EditSession | null>(null);
@@ -279,6 +284,7 @@ export function UnifiedEditor({
       onDraftChange={setDraft}
       posts={posts}
       series={series}
+      images={images}
       onCommit={commit}
       onCancel={closeSession}
     />

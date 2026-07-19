@@ -56,6 +56,7 @@ interface PostEditorProps {
   seriesList: { id: number; name: string }[];
   /** ::post{slug=...} / :postlink{slug=...} 자동완성용 전체 포스트 목록 */
   allPosts: { title: string; slug: string }[];
+  images: { id: number; filename: string; size: number; mimeType: string }[];
   initialTagIds: number[];
   initialSeriesIds: number[];
   /** 서버에서 EDITOR_MODE_COOKIE를 읽은 값 */
@@ -100,6 +101,7 @@ export function PostEditor({
   tags,
   seriesList,
   allPosts,
+  images,
   initialTagIds,
   initialSeriesIds,
   initialMode,
@@ -366,6 +368,7 @@ export function PostEditor({
             onImageResize={handleImageResize}
             posts={allPosts}
             series={seriesList}
+            images={images}
           />
         ) : (
           <div className={mode === "split" ? "grid gap-4 lg:grid-cols-2" : ""}>
@@ -375,6 +378,7 @@ export function PostEditor({
               onValueChange={onContentChange}
               posts={allPosts}
               series={seriesList}
+              images={images}
               // 분할: 고정 높이 + 내부 스크롤(스크롤 동기화 대상)
               // 소스: 기존처럼 내용 따라 자라는 textarea
               className={

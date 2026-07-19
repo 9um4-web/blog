@@ -7,6 +7,7 @@ import {
   getPostSeriesIds,
   getPostTagIds,
   listAllTags,
+  listImagesForAdmin,
   listPostsForAdmin,
   listSeries,
 } from "@/lib/db/queries";
@@ -26,12 +27,13 @@ export default async function EditPostPage({
   if (!post) notFound();
 
   const cookieStore = await cookies();
-  const [tags, seriesList, allPosts, tagIds, seriesIds] = await Promise.all([
+  const [tags, seriesList, allPosts, tagIds, seriesIds, images] = await Promise.all([
     listAllTags(),
     listSeries(),
     listPostsForAdmin(),
     getPostTagIds(postId),
     getPostSeriesIds(postId),
+    listImagesForAdmin(),
   ]);
 
   return (
@@ -44,6 +46,7 @@ export default async function EditPostPage({
         allPosts={allPosts
           .filter((p): p is typeof p & { slug: string } => p.slug !== null)
           .map((p) => ({ title: p.title, slug: p.slug }))}
+        images={images}
         initialTagIds={tagIds}
         initialSeriesIds={seriesIds}
         initialMode={parseEditorMode(cookieStore.get(EDITOR_MODE_COOKIE)?.value)}
