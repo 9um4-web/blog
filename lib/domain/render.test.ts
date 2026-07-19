@@ -277,4 +277,40 @@ describe("renderPostHtml", () => {
     expect(html).toContain("앞");
     expect(html).toContain("뒤");
   });
+
+  describe("이미지 크기 조절 (rehypeImageResize)", () => {
+    it("w 또는 width 쿼리 파라미터가 있으면 이미지 width 스타일을 설정하고 height를 auto로 한다", async () => {
+      const html1 = await renderPostHtml("![테스트](/images/1/pic.png?w=300)");
+      expect(html1).toContain('style="width: 300px; height: auto"');
+
+      const html2 = await renderPostHtml("![테스트](/images/1/pic.png?width=50%)");
+      expect(html2).toContain('style="width: 50%; height: auto"');
+    });
+
+    it("h 또는 height 쿼리 파라미터가 있으면 이미지 height 스타일을 설정하고 width를 auto로 한다", async () => {
+      const html1 = await renderPostHtml("![테스트](/images/1/pic.png?h=200)");
+      expect(html1).toContain('style="height: 200px; width: auto"');
+
+      const html2 = await renderPostHtml("![테스트](/images/1/pic.png?height=10rem)");
+      expect(html2).toContain('style="height: 10rem; width: auto"');
+    });
+
+    it("width와 height가 모두 있으면 둘 다 스타일로 설정한다", async () => {
+      const html = await renderPostHtml("![테스트](/images/1/pic.png?w=300&h=200)");
+      expect(html).toContain('style="width: 300px; height: 200px"');
+    });
+
+    it("hash fragment(#)에 크기 지정이 있어도 올바르게 스타일로 변환한다", async () => {
+      const html = await renderPostHtml("![테스트](/images/1/pic.png#w=50%&h=150)");
+      expect(html).toContain('style="width: 50%; height: 150px"');
+    });
+
+    it("크기 지정 파라미터가 없거나 올바르지 않으면 style을 설정하지 않는다", async () => {
+      const html1 = await renderPostHtml("![테스트](/images/1/pic.png)");
+      expect(html1).not.toContain("style=");
+
+      const html2 = await renderPostHtml("![테스트](/images/1/pic.png?other=123)");
+      expect(html2).not.toContain("style=");
+    });
+  });
 });

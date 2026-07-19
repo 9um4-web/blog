@@ -396,6 +396,59 @@ function rehypeSanitizeUrls() {
   };
 }
 
+function formatDimension(val: string): string {
+  if (/^\d+(\.\d+)?$/.test(val)) {
+    return `${val}px`;
+  }
+  return val;
+}
+
+/**
+ * 이미지 크기 조절: src URL의 query parameter나 hash fragment에서
+ * w/width, h/height 속성을 읽어 style 속성으로 변환해 적용한다.
+ * 비율 고정을 위해 한쪽만 있을 때 다른 한쪽은 auto로 명시한다.
+ */
+function rehypeImageResize() {
+  return (tree: Root) => {
+    visit(tree, "element", (node: Element) => {
+      if (node.tagName !== "img") return;
+      const src = node.properties?.src;
+      if (typeof src !== "string") return;
+
+      try {
+        const url = new URL(src, "http://localhost");
+        let width = url.searchParams.get("w") || url.searchParams.get("width");
+        let height = url.searchParams.get("h") || url.searchParams.get("height");
+
+        if (!width || !height) {
+          const hashParams = new URLSearchParams(url.hash.slice(1));
+          if (!width) width = hashParams.get("w") || hashParams.get("width");
+          if (!height) height = hashParams.get("h") || hashParams.get("height");
+        }
+
+        if (width || height) {
+          const styles: string[] = [];
+          if (node.properties.style && typeof node.properties.style === "string") {
+            styles.push(node.properties.style);
+          }
+          if (width) {
+            styles.push(`width: ${formatDimension(width)}`);
+            if (!height) styles.push("height: auto");
+          }
+          if (height) {
+            styles.push(`height: ${formatDimension(height)}`);
+            if (!width) styles.push("width: auto");
+          }
+          node.properties.style = styles.join("; ");
+        }
+      } catch {
+        // Ignore invalid URLs
+      }
+    });
+  };
+}
+
+
 // ---------- 코드 하이라이팅 (shiki, 서버 렌더 시 1회) ----------
 
 const HIGHLIGHT_LANGS = [
@@ -519,6 +572,7 @@ export async function renderPostHtml(contentMd: string, withSourceAttrs = false)
   const file = await pipeline
     .use(rehypeKatex) // 수식을 KaTeX HTML로 변환 (수식 오류 시 빨간 원문 표시)
     .use(rehypeSanitizeUrls)
+    .use(rehypeImageResize)
     .use(rehypeSectionWrap)
     .use(rehypeShikiHighlight)
     .use(rehypeStringify)
