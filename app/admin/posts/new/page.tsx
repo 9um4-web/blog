@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
-import { PostEditor, PREVIEW_COOKIE } from "@/components/admin/post-editor";
+import { PostEditor } from "@/components/admin/post-editor";
+import { EDITOR_MODE_COOKIE, parseEditorMode } from "@/lib/editor-utils";
 import { listAllTags, listPostsForAdmin, listSeries } from "@/lib/db/queries";
 
 export const metadata = { title: "새 포스트" };
@@ -24,7 +25,7 @@ export default async function NewPostPage() {
           .map((p) => ({ title: p.title, slug: p.slug }))}
         initialTagIds={[]}
         initialSeriesIds={[]}
-        initialPreviewOpen={cookieStore.get(PREVIEW_COOKIE)?.value !== "off"}
+        initialMode={parseEditorMode(cookieStore.get(EDITOR_MODE_COOKIE)?.value)}
       />
     </div>
   );

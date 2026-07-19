@@ -11,6 +11,7 @@ import { usePostPreview } from "@/components/admin/use-post-preview";
 import { DirectiveAutocompleteTextarea } from "@/components/admin/directive-autocomplete-textarea";
 import { ImageUploader } from "@/components/admin/image-uploader";
 import { PostPreview } from "@/components/admin/post-preview";
+import { UnifiedEditor } from "@/components/admin/unified-editor";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,13 +19,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { EDITOR_MODE_COOKIE, type EditorMode } from "@/lib/editor-utils";
 
-/**
- * 프리뷰 열림 상태 유지용 쿠키. localStorage가 아니라 쿠키인 이유:
- * 서버 페이지가 초기값을 읽어 prop으로 내려줄 수 있어 hydration 불일치와
- * effect 내 setState(react-hooks lint 금지)가 모두 필요 없어진다.
- */
-export const PREVIEW_COOKIE = "post_editor_preview";
+const MODE_LABELS: Record<EditorMode, string> = {
+  unified: "통합",
+  split: "분할",
+  source: "소스",
+};
+
+function persistEditorMode(mode: EditorMode) {
+  document.cookie = `${EDITOR_MODE_COOKIE}=${mode}; path=/admin; max-age=31536000; samesite=lax`;
+}
 
 /** 통합 편집 모드에서 에디터/프리뷰 패널 공통 높이 (헤더·메타 영역 제외한 viewport) */
 const PANE_HEIGHT_CLASS = "h-[calc(100vh-14rem)] min-h-[24rem]";
@@ -53,8 +58,8 @@ interface PostEditorProps {
   allPosts: { title: string; slug: string }[];
   initialTagIds: number[];
   initialSeriesIds: number[];
-  /** 서버에서 PREVIEW_COOKIE를 읽은 값 — 프리뷰 기본 열림 여부 */
-  initialPreviewOpen: boolean;
+  /** 서버에서 EDITOR_MODE_COOKIE를 읽은 값 */
+  initialMode: EditorMode;
 }
 
 function TagCheckboxTree({
@@ -97,7 +102,7 @@ export function PostEditor({
   allPosts,
   initialTagIds,
   initialSeriesIds,
-  initialPreviewOpen,
+  initialMode,
 }: PostEditorProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -107,7 +112,7 @@ export function PostEditor({
   const [contentMd, setContentMd] = useState(post?.contentMd ?? "");
   const [summary, setSummary] = useState(post?.summary ?? "");
   const [unlisted, setUnlisted] = useState(post?.unlisted ?? false);
-  const [previewOpen, setPreviewOpen] = useState(initialPreviewOpen);
+  const [mode, setMode] = useState<EditorMode>(initialMode);
   const [tagIds, setTagIds] = useState<Set<number>>(new Set(initialTagIds));
   const [seriesIds, setSeriesIds] = useState<Set<number>>(new Set(initialSeriesIds));
   const [parseError, setParseError] = useState(post?.parseError ?? null);
@@ -162,21 +167,24 @@ export function PostEditor({
   // (ref 쓰기는 렌더 중이 아니라 이벤트/초기화 시점에만)
   const contentRef = useRef(post?.contentMd ?? "");
 
-  // previewOpen이 true가 되는 시점(마운트 포함)에 첫 렌더를 예약
+  // mode가 바뀔 때(마운트 포함) 프리뷰 렌더 예약
   useEffect(() => {
-    if (previewOpen) schedulePreview(contentRef.current);
-  }, [previewOpen, schedulePreview]);
+    if (mode === "unified" || mode === "split") {
+      schedulePreview(contentRef.current);
+    }
+  }, [mode, schedulePreview]);
 
-  const togglePreview = () => {
-    const next = !previewOpen;
-    setPreviewOpen(next); // 열릴 때의 렌더 예약은 위 effect가 담당
-    document.cookie = `${PREVIEW_COOKIE}=${next ? "on" : "off"}; path=/admin; max-age=31536000; samesite=lax`;
+  const changeMode = (next: EditorMode) => {
+    setMode(next);
+    persistEditorMode(next);
   };
 
   const onContentChange = (value: string) => {
     setContentMd(value);
     contentRef.current = value;
-    if (previewOpen) schedulePreview(value);
+    if (mode === "unified" || mode === "split") {
+      schedulePreview(value);
+    }
   };
 
   // 에디터↔프리뷰 비례 스크롤 동기화. scrollTop 대입이 상대 패널의 scroll
@@ -248,16 +256,29 @@ export function PostEditor({
         <div className="flex items-center justify-between">
           <Label htmlFor="content">본문 (마크다운, 본문 헤딩은 h2부터)</Label>
           <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant={previewOpen ? "default" : "outline"}
-              size="sm"
-              onClick={togglePreview}
-            >
-              {previewOpen ? "미리보기 끄기" : "미리보기"}
-            </Button>
+            <div className="flex rounded-md border">
+              {(Object.keys(MODE_LABELS) as EditorMode[]).map((m) => (
+                <Button
+                  key={m}
+                  type="button"
+                  variant={mode === m ? "default" : "ghost"}
+                  size="sm"
+                  className="rounded-none first:rounded-l-md last:rounded-r-md"
+                  onClick={() => changeMode(m)}
+                >
+                  {MODE_LABELS[m]}
+                </Button>
+              ))}
+            </div>
             <ImageUploader
               onUploaded={(markdown) => {
+                if (mode === "unified") {
+                  // 통합 모드의 #content는 열려 있는 블록의 draft라 커서 삽입이
+                  // 본문 좌표와 어긋난다 — 항상 문서 끝에 덧붙인다
+                  const base = contentRef.current.replace(/\s*$/, "");
+                  onContentChange(base === "" ? markdown : `${base}\n\n${markdown}`);
+                  return;
+                }
                 // 커서 위치에 삽입, 포커스가 없었다면 끝에 덧붙임
                 const textarea = document.getElementById("content") as HTMLTextAreaElement | null;
                 const start = textarea?.selectionStart ?? contentMd.length;
@@ -267,47 +288,59 @@ export function PostEditor({
             />
           </div>
         </div>
-        <div className={previewOpen ? "grid gap-4 lg:grid-cols-2" : ""}>
-          <DirectiveAutocompleteTextarea
-            id="content"
-            value={contentMd}
-            onValueChange={onContentChange}
+
+        {mode === "unified" ? (
+          <UnifiedEditor
+            contentMd={contentMd}
+            bodyParts={previewBodyParts}
+            loading={previewLoading}
+            onContentChange={onContentChange}
             posts={allPosts}
             series={seriesList}
-            // 프리뷰 열림: 고정 높이 + 내부 스크롤(스크롤 동기화 대상)
-            // 프리뷰 닫힘: 기존처럼 내용 따라 자라는 textarea
-            className={
-              previewOpen
-                ? `${PANE_HEIGHT_CLASS} resize-none overflow-auto font-mono text-sm`
-                : "min-h-[24rem] font-mono text-sm"
-            }
-            onScroll={(e) => {
-              if (previewPaneRef.current) syncScroll(e.currentTarget, previewPaneRef.current);
-            }}
           />
-          {previewOpen && (
-            <div
-              ref={previewPaneRef}
+        ) : (
+          <div className={mode === "split" ? "grid gap-4 lg:grid-cols-2" : ""}>
+            <DirectiveAutocompleteTextarea
+              id="content"
+              value={contentMd}
+              onValueChange={onContentChange}
+              posts={allPosts}
+              series={seriesList}
+              // 분할: 고정 높이 + 내부 스크롤(스크롤 동기화 대상)
+              // 소스: 기존처럼 내용 따라 자라는 textarea
+              className={
+                mode === "split"
+                  ? `${PANE_HEIGHT_CLASS} resize-none overflow-auto font-mono text-sm`
+                  : "min-h-[24rem] font-mono text-sm"
+              }
               onScroll={(e) => {
-                const editor = document.getElementById("content");
-                if (editor) syncScroll(e.currentTarget, editor);
+                if (previewPaneRef.current) syncScroll(e.currentTarget, previewPaneRef.current);
               }}
-              className={`${PANE_HEIGHT_CLASS} overflow-auto rounded-md border p-4`}
-            >
-              <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-                <span>미리보기 (제목/목차 제외, 접기·다이어그램 동작)</span>
-                {previewLoading && <span>렌더 중…</span>}
+            />
+            {mode === "split" && (
+              <div
+                ref={previewPaneRef}
+                onScroll={(e) => {
+                  const editor = document.getElementById("content");
+                  if (editor) syncScroll(e.currentTarget, editor);
+                }}
+                className={`${PANE_HEIGHT_CLASS} overflow-auto rounded-md border p-4`}
+              >
+                <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>미리보기 (제목/목차 제외, 접기·다이어그램 동작)</span>
+                  {previewLoading && <span>렌더 중…</span>}
+                </div>
+                {previewBodyParts.length > 0 ? (
+                  <PostPreview bodyParts={previewBodyParts} />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    본문을 입력하면 미리보기가 표시됩니다.
+                  </p>
+                )}
               </div>
-              {previewBodyParts.length > 0 ? (
-                <PostPreview bodyParts={previewBodyParts} />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  본문을 입력하면 미리보기가 표시됩니다.
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
         <p className="text-xs text-muted-foreground">
           확장 문법: <code>```mermaid</code> · <code>::youtube[영상ID]</code> ·{" "}
           <code>::post{"{slug=my-post}"}</code> · <code>::series{"{id=1}"}</code> ·{" "}

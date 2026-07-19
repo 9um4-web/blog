@@ -35,7 +35,7 @@ export async function renderPostPreview(
 ): Promise<{ html: string; headingTree: HeadingNode[]; bodyParts: HydratedPostBodyPart[] }> {
   await requireAdmin();
   const parsed = parseForSave(contentMd);
-  const html = await renderPostHtml(contentMd);
+  const html = await renderPostHtml(contentMd, true);
   const embedParts = splitPostEmbedParts(html);
   const requests = extractPostEmbedRequests(embedParts);
   const [postCards, seriesRows, seriesPostsRows] = await Promise.all([

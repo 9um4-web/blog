@@ -487,16 +487,36 @@ function rehypeShikiHighlight() {
   };
 }
 
+function rehypeSourceLines() {
+  return (tree: Root) => {
+    for (const child of tree.children) {
+      if (child.type === "element" && child.position) {
+        child.properties = {
+          ...child.properties,
+          "data-sl": String(child.position.start.line),
+          "data-el": String(child.position.end.line),
+        };
+      }
+    }
+  };
+}
+
 /** 게시 뷰용 HTML 생성. heading_tree는 저장된 JSON을 그대로 쓰고(스펙 4.1), 본문만 여기서 변환한다. */
-export async function renderPostHtml(contentMd: string): Promise<string> {
-  const file = await unified()
+export async function renderPostHtml(contentMd: string, withSourceAttrs = false): Promise<string> {
+  const pipeline = unified()
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkMath) // $인라인$, $$블록$$ 수식
     .use(remarkDirective)
     .use(remarkFlattenTransparentContainers)
     .use(remarkCustomDirectives)
-    .use(remarkRehype)
+    .use(remarkRehype);
+
+  if (withSourceAttrs) {
+    pipeline.use(rehypeSourceLines);
+  }
+
+  const file = await pipeline
     .use(rehypeKatex) // 수식을 KaTeX HTML로 변환 (수식 오류 시 빨간 원문 표시)
     .use(rehypeSanitizeUrls)
     .use(rehypeSectionWrap)

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ThemeProvider } from "next-themes";
+import { ThemeProvider } from "@/components/theme-provider";
 import Link from "next/link";
 import { fontVariableClasses } from "@/app/fonts";
 import { MobileNav } from "@/components/mobile-nav";

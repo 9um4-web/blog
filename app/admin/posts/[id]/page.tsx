@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
-import { PostEditor, PREVIEW_COOKIE } from "@/components/admin/post-editor";
+import { PostEditor } from "@/components/admin/post-editor";
+import { EDITOR_MODE_COOKIE, parseEditorMode } from "@/lib/editor-utils";
 import {
   getPostById,
   getPostSeriesIds,
@@ -45,7 +46,7 @@ export default async function EditPostPage({
           .map((p) => ({ title: p.title, slug: p.slug }))}
         initialTagIds={tagIds}
         initialSeriesIds={seriesIds}
-        initialPreviewOpen={cookieStore.get(PREVIEW_COOKIE)?.value !== "off"}
+        initialMode={parseEditorMode(cookieStore.get(EDITOR_MODE_COOKIE)?.value)}
       />
     </div>
   );

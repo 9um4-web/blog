@@ -19,6 +19,12 @@ function normalizeSeriesId(raw: string | null): number | null {
   return id;
 }
 
+function normalizeSourceLine(raw: string | null): number | null {
+  if (!raw) return null;
+  const val = Number(raw.trim());
+  return Number.isInteger(val) && val >= 1 ? val : null;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -56,15 +62,15 @@ export interface PostEmbedData {
 
 type RawEmbedPart =
   | { kind: "html"; html: string }
-  | { kind: "post"; slug: string }
-  | { kind: "series"; seriesId: number }
-  | { kind: "error"; message: string };
+  | { kind: "post"; slug: string; sourceLines?: { start: number; end: number } }
+  | { kind: "series"; seriesId: number; sourceLines?: { start: number; end: number } }
+  | { kind: "error"; message: string; sourceLines?: { start: number; end: number } };
 
 export type HydratedPostBodyPart =
   | { kind: "html"; html: string }
-  | { kind: "post-card"; card: PostEmbedPostCard }
-  | { kind: "series-card"; series: PostEmbedSeriesCard }
-  | { kind: "error"; message: string };
+  | { kind: "post-card"; card: PostEmbedPostCard; sourceLines?: { start: number; end: number } }
+  | { kind: "series-card"; series: PostEmbedSeriesCard; sourceLines?: { start: number; end: number } }
+  | { kind: "error"; message: string; sourceLines?: { start: number; end: number } };
 
 export function splitPostEmbedParts(html: string): RawEmbedPart[] {
   const parts: RawEmbedPart[] = [];
@@ -81,14 +87,18 @@ export function splitPostEmbedParts(html: string): RawEmbedPart[] {
     }
 
     const type = readAttr(attrs, "data-embed");
+    const sl = normalizeSourceLine(readAttr(attrs, "data-sl"));
+    const el = normalizeSourceLine(readAttr(attrs, "data-el"));
+    const sourceLines = sl !== null && el !== null ? { start: sl, end: el } : undefined;
+
     if (type === "post") {
       const slug = normalizePostSlug(readAttr(attrs, "data-post-slug"));
-      if (slug) parts.push({ kind: "post", slug });
-      else parts.push({ kind: "error", message: "[post: 잘못된 slug]" });
+      if (slug) parts.push({ kind: "post", slug, sourceLines });
+      else parts.push({ kind: "error", message: "[post: 잘못된 slug]", sourceLines });
     } else if (type === "series") {
       const seriesId = normalizeSeriesId(readAttr(attrs, "data-series-id"));
-      if (seriesId !== null) parts.push({ kind: "series", seriesId });
-      else parts.push({ kind: "error", message: "[series: 잘못된 id]" });
+      if (seriesId !== null) parts.push({ kind: "series", seriesId, sourceLines });
+      else parts.push({ kind: "error", message: "[series: 잘못된 id]", sourceLines });
     }
 
     lastIndex = index + full.length;
@@ -120,18 +130,23 @@ export function hydratePostEmbedParts(parts: RawEmbedPart[], data: PostEmbedData
   const seriesById = new Map(data.seriesCards.map((series) => [series.id, series]));
 
   return parts.map((part): HydratedPostBodyPart => {
-    if (part.kind === "html" || part.kind === "error") return part;
+    if (part.kind === "html") return part;
+
+    const sourceLines = part.sourceLines;
+    if (part.kind === "error") {
+      return { kind: "error", message: part.message, sourceLines };
+    }
 
     if (part.kind === "post") {
       const card = postBySlug.get(part.slug);
       return card
-        ? { kind: "post-card", card }
-        : { kind: "error", message: `[post: 찾을 수 없는 포스트 (${escapeHtml(part.slug)})]` };
+        ? { kind: "post-card", card, sourceLines }
+        : { kind: "error", message: `[post: 찾을 수 없는 포스트 (${escapeHtml(part.slug)})]`, sourceLines };
     }
 
     const series = seriesById.get(part.seriesId);
     return series
-      ? { kind: "series-card", series }
-      : { kind: "error", message: `[series: 찾을 수 없는 시리즈 (${part.seriesId})]` };
+      ? { kind: "series-card", series, sourceLines }
+      : { kind: "error", message: `[series: 찾을 수 없는 시리즈 (${part.seriesId})]`, sourceLines };
   });
 }
