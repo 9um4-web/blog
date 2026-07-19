@@ -11,6 +11,7 @@ import { unified } from "unified";
 import { visit } from "unist-util-visit";
 import type { Element, ElementContent, Root, RootContent } from "hast";
 import type { Root as MdastRoot } from "mdast";
+import { flattenTransparentContainers } from "./markdown";
 
 const HEADING_TAGS = new Set(["h2", "h3", "h4", "h5", "h6"]);
 
@@ -337,6 +338,17 @@ function postLink(node: DirectiveNode): void {
   };
 }
 
+/**
+ * :::indent/:::center/:::right 안의 헤딩을 문서 최상위로 끌어올려 rehypeSectionWrap이
+ * 일반 헤딩과 동일하게 접기/섹션 대상으로 처리하게 한다 (lib/domain/markdown.ts와 동일 규칙 —
+ * heading_tree의 id와 본문 앵커 id가 계속 1:1로 일치하려면 두 곳에서 같은 전처리가 필요하다).
+ */
+function remarkFlattenTransparentContainers() {
+  return (tree: MdastRoot) => {
+    tree.children = flattenTransparentContainers(tree.children);
+  };
+}
+
 function remarkCustomDirectives() {
   return (tree: MdastRoot) => {
     visit(tree, (node) => {
@@ -482,6 +494,7 @@ export async function renderPostHtml(contentMd: string): Promise<string> {
     .use(remarkGfm)
     .use(remarkMath) // $인라인$, $$블록$$ 수식
     .use(remarkDirective)
+    .use(remarkFlattenTransparentContainers)
     .use(remarkCustomDirectives)
     .use(remarkRehype)
     .use(rehypeKatex) // 수식을 KaTeX HTML로 변환 (수식 오류 시 빨간 원문 표시)

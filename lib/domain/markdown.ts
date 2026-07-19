@@ -22,6 +22,60 @@ export function parseMarkdown(contentMd: string): Root {
 }
 
 /**
+ * :::indent/:::center/:::right는 순수 시각적 래퍼라, 안에 헤딩이 있어도 접기/목차
+ * 대상이 되어야 한다 — 헤딩을 기준으로 컨테이너를 여러 조각으로 쪼개 헤딩만 문서
+ * 최상위로 끌어올린다(그 외 내용은 원래 컨테이너에 남아 스타일 유지).
+ * :::note 같은 의미 있는 콜아웃, fold 오버라이드는 대상 아님. 최상위에 직접 있는
+ * 컨테이너만 처리 — 다른 블록 안에 중첩된 경우는 기존과 동일하게 제외된다.
+ */
+const TRANSPARENT_CONTAINER_NAMES = new Set(["indent", "center", "right"]);
+
+interface ContainerDirectiveNode {
+  type: "containerDirective";
+  name: string;
+  children: unknown[];
+}
+
+function isTransparentContainer(node: unknown): node is ContainerDirectiveNode {
+  const n = node as { type?: string; name?: string; children?: unknown };
+  return (
+    n.type === "containerDirective" &&
+    typeof n.name === "string" &&
+    TRANSPARENT_CONTAINER_NAMES.has(n.name) &&
+    Array.isArray(n.children)
+  );
+}
+
+export function flattenTransparentContainers<T extends { type: string }>(children: T[]): T[] {
+  const result: T[] = [];
+
+  for (const node of children) {
+    if (!isTransparentContainer(node)) {
+      result.push(node);
+      continue;
+    }
+
+    let run: unknown[] = [];
+    const flushRun = () => {
+      if (run.length === 0) return;
+      result.push({ ...node, children: run } as T);
+      run = [];
+    };
+    for (const child of node.children) {
+      if ((child as { type: string }).type === "heading") {
+        flushRun();
+        result.push(child as T);
+      } else {
+        run.push(child);
+      }
+    }
+    flushRun();
+  }
+
+  return result;
+}
+
+/**
  * 루트 직속 heading 노드에서 heading_tree를 만든다.
  *
  * - h1은 무시 (제목은 Post.title로 별도 관리, 스펙 3.3)
@@ -29,13 +83,16 @@ export function parseMarkdown(contentMd: string): Root {
  * - 트리 부모 = 직전에 등장한, 자신보다 낮은 level의 가장 가까운 헤딩 (레벨 스킵 대응, 스펙 3.4)
  * - 앵커 id는 텍스트 slug + 중복 시 -1, -2 dedup (스펙 3.5)
  * - 인용문/리스트 내부의 헤딩은 섹션 접기 단위가 될 수 없으므로 제외
+ * - :::indent/:::center/:::right 안의 헤딩은 flattenTransparentContainers로 최상위로
+ *   끌어올려진 뒤 이 함수에 들어오므로 정상적으로 포함된다
  */
 export function extractHeadingTree(root: Root): HeadingNode[] {
   const slugger = new GithubSlugger();
   const forest: HeadingNode[] = [];
   const stack: HeadingNode[] = [];
+  const children = flattenTransparentContainers(root.children);
 
-  for (const node of root.children) {
+  for (const node of children) {
     if (node.type !== "heading" || node.depth === 1) continue;
 
     const text = toString(node);

@@ -46,6 +46,21 @@ describe("renderPostHtml", () => {
     expect(html.indexOf("서두 문단")).toBeLessThan(html.indexOf("<section"));
   });
 
+  it(":::indent 안의 헤딩은 자기만의 section으로 감싸져 A 섹션의 하위 섹션이 된다", async () => {
+    const md = ["## A", ":::indent{n=1}", "### B", "본문", ":::"].join("\n\n");
+    const html = await renderPostHtml(md);
+    expect(html).toContain('data-heading-id="a"');
+    expect(html).toContain('data-heading-id="b"');
+    const aStart = html.indexOf('data-heading-id="a"');
+    const bStart = html.indexOf('data-heading-id="b"');
+    // B는 indent-block 안이 아니라 독립된 section이면서 A의 하위에 위치
+    expect(bStart).toBeGreaterThan(aStart);
+    expect(html.slice(aStart, bStart)).not.toContain("indent-block");
+    // B 헤딩 뒤의 본문 문단은 여전히 들여쓰기 스타일을 유지한다
+    const bodyIdx = html.indexOf("본문");
+    expect(html.slice(bStart, bodyIdx)).toContain("indent-block");
+  });
+
   it("GFM 테이블을 렌더링한다", async () => {
     const html = await renderPostHtml("| a | b |\n| - | - |\n| 1 | 2 |");
     expect(html).toContain("<table>");

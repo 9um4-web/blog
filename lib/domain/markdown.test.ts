@@ -77,6 +77,31 @@ describe("extractHeadingTree", () => {
   it("빈 문서는 빈 forest", () => {
     expect(tree("")).toEqual([]);
   });
+
+  it(":::indent/:::center/:::right 안의 헤딩은 최상위로 끌어올려져 트리에 포함된다", () => {
+    const md = [
+      "## A",
+      ":::indent{n=1}",
+      "### B",
+      "본문",
+      ":::",
+      "## C",
+      ":::center",
+      "### D",
+      ":::",
+    ].join("\n\n");
+    const t = tree(md);
+    expect(t).toHaveLength(2);
+    expect(t[0].children.map((c) => c.text)).toEqual(["B"]);
+    expect(t[1].children.map((c) => c.text)).toEqual(["D"]);
+  });
+
+  it(":::note 콜아웃 안의 헤딩은 여전히 제외된다 (의미 있는 블록이라 대상 아님)", () => {
+    const md = ["## A", ":::note", "### 콜아웃 속 헤딩", ":::"].join("\n\n");
+    const t = tree(md);
+    expect(t).toHaveLength(1);
+    expect(t[0].children).toEqual([]);
+  });
 });
 
 describe("excerptFromMarkdown", () => {
