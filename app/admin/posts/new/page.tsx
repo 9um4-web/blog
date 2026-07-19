@@ -1,9 +1,11 @@
-import { PostEditor } from "@/components/admin/post-editor";
+import { cookies } from "next/headers";
+import { PostEditor, PREVIEW_COOKIE } from "@/components/admin/post-editor";
 import { listAllTags, listPostsForAdmin, listSeries } from "@/lib/db/queries";
 
 export const metadata = { title: "새 포스트" };
 
 export default async function NewPostPage() {
+  const cookieStore = await cookies();
   const [tags, seriesList, allPosts] = await Promise.all([
     listAllTags(),
     listSeries(),
@@ -22,6 +24,7 @@ export default async function NewPostPage() {
           .map((p) => ({ title: p.title, slug: p.slug }))}
         initialTagIds={[]}
         initialSeriesIds={[]}
+        initialPreviewOpen={cookieStore.get(PREVIEW_COOKIE)?.value !== "off"}
       />
     </div>
   );

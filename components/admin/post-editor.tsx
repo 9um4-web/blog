@@ -1,13 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { renderPostPreview, savePost } from "@/lib/actions/posts";
+import { savePost } from "@/lib/actions/posts";
 import { setPostTags } from "@/lib/actions/tags";
 import { syncPostSeries } from "@/lib/actions/series";
 import { buildTagTree, type TagTreeNode } from "@/lib/domain/tag-tree";
-import type { HydratedPostBodyPart } from "@/lib/post-embeds";
+import { usePostPreview } from "@/components/admin/use-post-preview";
 import { DirectiveAutocompleteTextarea } from "@/components/admin/directive-autocomplete-textarea";
 import { ImageUploader } from "@/components/admin/image-uploader";
 import { PostPreview } from "@/components/admin/post-preview";
@@ -18,6 +18,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+
+/**
+ * 프리뷰 열림 상태 유지용 쿠키. localStorage가 아니라 쿠키인 이유:
+ * 서버 페이지가 초기값을 읽어 prop으로 내려줄 수 있어 hydration 불일치와
+ * effect 내 setState(react-hooks lint 금지)가 모두 필요 없어진다.
+ */
+export const PREVIEW_COOKIE = "post_editor_preview";
+
+/** 통합 편집 모드에서 에디터/프리뷰 패널 공통 높이 (헤더·메타 영역 제외한 viewport) */
+const PANE_HEIGHT_CLASS = "h-[calc(100vh-14rem)] min-h-[24rem]";
 
 interface TagData {
   id: number;
@@ -43,6 +53,8 @@ interface PostEditorProps {
   allPosts: { title: string; slug: string }[];
   initialTagIds: number[];
   initialSeriesIds: number[];
+  /** 서버에서 PREVIEW_COOKIE를 읽은 값 — 프리뷰 기본 열림 여부 */
+  initialPreviewOpen: boolean;
 }
 
 function TagCheckboxTree({
@@ -85,6 +97,7 @@ export function PostEditor({
   allPosts,
   initialTagIds,
   initialSeriesIds,
+  initialPreviewOpen,
 }: PostEditorProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -94,9 +107,7 @@ export function PostEditor({
   const [contentMd, setContentMd] = useState(post?.contentMd ?? "");
   const [summary, setSummary] = useState(post?.summary ?? "");
   const [unlisted, setUnlisted] = useState(post?.unlisted ?? false);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewBodyParts, setPreviewBodyParts] = useState<HydratedPostBodyPart[]>([]);
-  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(initialPreviewOpen);
   const [tagIds, setTagIds] = useState<Set<number>>(new Set(initialTagIds));
   const [seriesIds, setSeriesIds] = useState<Set<number>>(new Set(initialSeriesIds));
   const [parseError, setParseError] = useState(post?.parseError ?? null);
@@ -140,39 +151,51 @@ export function PostEditor({
     });
   };
 
-  // 본문 변경을 디바운스해 서버 렌더 요청. 요청 id로 늦게 도착한 응답을
-  // 버려 순서 꼬임을 방지한다. (effect가 아니라 이벤트에서 호출)
-  const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const previewReqId = useRef(0);
-  const schedulePreview = (content: string) => {
-    if (previewTimer.current) clearTimeout(previewTimer.current);
-    setPreviewLoading(true);
-    previewTimer.current = setTimeout(async () => {
-      const reqId = ++previewReqId.current;
-      try {
-        const { bodyParts } = await renderPostPreview(content);
-        if (reqId === previewReqId.current) setPreviewBodyParts(bodyParts);
-      } catch {
-        if (reqId === previewReqId.current) {
-          setPreviewBodyParts([
-            { kind: "error", message: "미리보기 렌더 실패" },
-          ]);
-        }
-      } finally {
-        if (reqId === previewReqId.current) setPreviewLoading(false);
-      }
-    }, 400);
-  };
+  const {
+    bodyParts: previewBodyParts,
+    loading: previewLoading,
+    schedule: schedulePreview,
+  } = usePostPreview();
+
+  // 최신 본문을 ref로도 유지 — 프리뷰가 (재)열릴 때 effect에서 렌더를 예약하는데,
+  // contentMd를 deps에 넣으면 타이핑마다 effect가 돌므로 ref로 우회한다.
+  // (ref 쓰기는 렌더 중이 아니라 이벤트/초기화 시점에만)
+  const contentRef = useRef(post?.contentMd ?? "");
+
+  // previewOpen이 true가 되는 시점(마운트 포함)에 첫 렌더를 예약
+  useEffect(() => {
+    if (previewOpen) schedulePreview(contentRef.current);
+  }, [previewOpen, schedulePreview]);
 
   const togglePreview = () => {
     const next = !previewOpen;
-    setPreviewOpen(next);
-    if (next) schedulePreview(contentMd);
+    setPreviewOpen(next); // 열릴 때의 렌더 예약은 위 effect가 담당
+    document.cookie = `${PREVIEW_COOKIE}=${next ? "on" : "off"}; path=/admin; max-age=31536000; samesite=lax`;
   };
 
   const onContentChange = (value: string) => {
     setContentMd(value);
+    contentRef.current = value;
     if (previewOpen) schedulePreview(value);
+  };
+
+  // 에디터↔프리뷰 비례 스크롤 동기화. scrollTop 대입이 상대 패널의 scroll
+  // 이벤트를 다시 발생시키므로, 값이 실제로 바뀔 때만 echo 플래그를 세워
+  // 되돌아온 이벤트 1회를 삼킨다.
+  const previewPaneRef = useRef<HTMLDivElement | null>(null);
+  const scrollEcho = useRef(false);
+  const syncScroll = (from: HTMLElement, to: HTMLElement) => {
+    if (scrollEcho.current) {
+      scrollEcho.current = false;
+      return;
+    }
+    const fromMax = from.scrollHeight - from.clientHeight;
+    const ratio = fromMax > 0 ? from.scrollTop / fromMax : 0;
+    const next = ratio * (to.scrollHeight - to.clientHeight);
+    if (Math.abs(to.scrollTop - next) > 1) {
+      scrollEcho.current = true;
+      to.scrollTop = next;
+    }
   };
 
   return (
@@ -251,10 +274,26 @@ export function PostEditor({
             onValueChange={onContentChange}
             posts={allPosts}
             series={seriesList}
-            className="min-h-[24rem] font-mono text-sm"
+            // 프리뷰 열림: 고정 높이 + 내부 스크롤(스크롤 동기화 대상)
+            // 프리뷰 닫힘: 기존처럼 내용 따라 자라는 textarea
+            className={
+              previewOpen
+                ? `${PANE_HEIGHT_CLASS} resize-none overflow-auto font-mono text-sm`
+                : "min-h-[24rem] font-mono text-sm"
+            }
+            onScroll={(e) => {
+              if (previewPaneRef.current) syncScroll(e.currentTarget, previewPaneRef.current);
+            }}
           />
           {previewOpen && (
-            <div className="min-h-[24rem] overflow-auto rounded-md border p-4">
+            <div
+              ref={previewPaneRef}
+              onScroll={(e) => {
+                const editor = document.getElementById("content");
+                if (editor) syncScroll(e.currentTarget, editor);
+              }}
+              className={`${PANE_HEIGHT_CLASS} overflow-auto rounded-md border p-4`}
+            >
               <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
                 <span>미리보기 (제목/목차 제외, 접기·다이어그램 동작)</span>
                 {previewLoading && <span>렌더 중…</span>}

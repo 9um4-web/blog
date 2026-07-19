@@ -1,5 +1,6 @@
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
-import { PostEditor } from "@/components/admin/post-editor";
+import { PostEditor, PREVIEW_COOKIE } from "@/components/admin/post-editor";
 import {
   getPostById,
   getPostSeriesIds,
@@ -23,6 +24,7 @@ export default async function EditPostPage({
   const post = await getPostById(postId);
   if (!post) notFound();
 
+  const cookieStore = await cookies();
   const [tags, seriesList, allPosts, tagIds, seriesIds] = await Promise.all([
     listAllTags(),
     listSeries(),
@@ -43,6 +45,7 @@ export default async function EditPostPage({
           .map((p) => ({ title: p.title, slug: p.slug }))}
         initialTagIds={tagIds}
         initialSeriesIds={seriesIds}
+        initialPreviewOpen={cookieStore.get(PREVIEW_COOKIE)?.value !== "off"}
       />
     </div>
   );
