@@ -12,6 +12,8 @@ import {
 import { DirectiveAutocompleteTextarea } from "@/components/admin/directive-autocomplete-textarea";
 import { Button } from "@/components/ui/button";
 
+import { setupImageResizing } from "./image-resize";
+
 interface PostOption {
   title: string;
   slug: string;
@@ -28,6 +30,7 @@ interface UnifiedEditorProps {
   loading: boolean;
   /** 블록 커밋으로 본문이 바뀔 때 호출 — 호출자가 재렌더(schedulePreview)까지 담당 */
   onContentChange: (value: string) => void;
+  onImageResize?: (lineNum: number, originalSrc: string, newWidth: string) => void;
   posts: PostOption[];
   series: SeriesOption[];
 }
@@ -110,6 +113,7 @@ export function UnifiedEditor({
   bodyParts,
   loading,
   onContentChange,
+  onImageResize,
   posts,
   series,
 }: UnifiedEditorProps) {
@@ -123,6 +127,13 @@ export function UnifiedEditor({
   useEffect(() => {
     staleRender.current = false;
   }, [bodyParts]);
+
+  // 이미지 드래그 리사이즈 핸들 부착 및 드래그 로직 처리
+  useEffect(() => {
+    if (bodyRef.current && onImageResize) {
+      setupImageResizing(bodyRef.current, onImageResize);
+    }
+  }, [bodyParts, onImageResize, bodyRef]);
 
   const sessionRef = useRef(session);
   useEffect(() => {
@@ -211,6 +222,15 @@ export function UnifiedEditor({
   const onBodyClickCapture = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest("[data-unified-editor-panel]")) return;
+    if (
+      target.closest(".image-resize-handle") ||
+      document.body.dataset.imageResizing ||
+      document.body.dataset.imageJustResized
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
 
     if (e.altKey) {
       if (bodyRef.current) {

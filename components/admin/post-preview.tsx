@@ -8,12 +8,19 @@ import { renderVisibleMermaid } from "@/components/post/mermaid-lazy";
 import { PostCardContent } from "@/components/post/post-card-content";
 import { SeriesAccordionCard } from "@/components/post/series-card-parts";
 import type { HydratedPostBodyPart } from "@/lib/post-embeds";
+import { setupImageResizing } from "./image-resize";
 
 /**
  * 에디터 미리보기 본문. 게시 뷰(PostView)의 본문 렌더와 동일하게
  * 섹션 접기/펼치기 + Mermaid lazy 렌더를 지원한다. (TOC/제목은 생략)
  */
-export function PostPreview({ bodyParts }: { bodyParts: HydratedPostBodyPart[] }) {
+export function PostPreview({
+  bodyParts,
+  onImageResize,
+}: {
+  bodyParts: HydratedPostBodyPart[];
+  onImageResize?: (lineNum: number, originalSrc: string, newWidth: string) => void;
+}) {
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const initMermaid = useCallback(() => {
@@ -29,6 +36,13 @@ export function PostPreview({ bodyParts }: { bodyParts: HydratedPostBodyPart[] }
     if (!bodyRef.current) return;
     return attachFootnotePreview(bodyRef.current);
   }, [bodyParts]);
+
+  // 이미지 드래그 리사이즈 핸들 부착 및 드래그 로직 처리
+  useEffect(() => {
+    if (bodyRef.current && onImageResize) {
+      setupImageResizing(bodyRef.current, onImageResize);
+    }
+  }, [bodyParts, onImageResize]);
 
   const onBodyClick = useCallback(
     (e: React.MouseEvent) => {

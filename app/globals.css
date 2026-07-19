@@ -386,3 +386,65 @@ body {
     @apply font-sans;
   }
 }
+
+/* ---------- 에디터 이미지 드래그 리사이즈 핸들 ---------- */
+
+.image-resize-container {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.image-resize-container img {
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.image-resize-handle {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 60px;
+  background-color: var(--border);
+  border: 1px solid var(--muted-foreground);
+  border-radius: 4px;
+  cursor: ew-resize;
+  opacity: 0;
+  transition: opacity 0.2s, background-color 0.2s, transform 0.2s;
+  z-index: 20;
+}
+
+.image-resize-handle::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 15px;
+  bottom: 15px;
+  width: 2px;
+  border-left: 1px double var(--muted-foreground);
+}
+
+.image-resize-handle.left {
+  left: -4px;
+}
+
+.image-resize-handle.right {
+  right: -4px;
+}
+
+.image-resize-container:hover .image-resize-handle {
+  opacity: 0.6;
+}
+
+.image-resize-handle:hover {
+  opacity: 1 !important;
+  background-color: var(--primary);
+  border-color: var(--primary);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.image-resize-handle:hover::before {
+  border-color: var(--primary-foreground);
+}

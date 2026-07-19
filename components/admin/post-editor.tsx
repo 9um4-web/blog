@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { savePost } from "@/lib/actions/posts";
 import { setPostTags } from "@/lib/actions/tags";
@@ -179,13 +179,81 @@ export function PostEditor({
     persistEditorMode(next);
   };
 
-  const onContentChange = (value: string) => {
+  const onContentChange = useCallback((value: string) => {
     setContentMd(value);
     contentRef.current = value;
     if (mode === "unified" || mode === "split") {
       schedulePreview(value);
     }
-  };
+  }, [mode, schedulePreview]);
+
+  const handleImageResize = useCallback(
+    (lineNum: number, originalSrc: string, newWidth: string) => {
+      const lines = contentMd.split("\n");
+      const targetLine = lines[lineNum - 1];
+      if (!targetLine) return;
+
+      let baseSrc = originalSrc;
+      try {
+        const url = new URL(originalSrc, "http://localhost");
+        baseSrc = url.pathname;
+      } catch {}
+
+      const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
+      let match;
+      let newLineText = targetLine;
+
+      while ((match = imageRegex.exec(targetLine)) !== null) {
+        const matchedAlt = match[1];
+        const matchedUrl = match[2];
+        let matchedBaseUrl = matchedUrl;
+        try {
+          const url = new URL(matchedUrl, "http://localhost");
+          matchedBaseUrl = url.pathname;
+        } catch {}
+
+        if (matchedBaseUrl === baseSrc) {
+          let newUrl = matchedUrl;
+          try {
+            const url = new URL(matchedUrl, "http://localhost");
+            const isHash = url.hash.includes("w=") || url.hash.includes("width=");
+
+            // Remove existing height parameters to maintain aspect ratio
+            url.searchParams.delete("h");
+            url.searchParams.delete("height");
+
+            if (isHash) {
+              const hashParams = new URLSearchParams(url.hash.slice(1));
+              hashParams.delete("h");
+              hashParams.delete("height");
+              if (hashParams.has("w")) hashParams.set("w", newWidth);
+              else hashParams.set("width", newWidth);
+              url.hash = hashParams.toString();
+            } else {
+              if (url.searchParams.has("width")) url.searchParams.set("width", newWidth);
+              else url.searchParams.set("w", newWidth);
+            }
+            newUrl = url.pathname + url.search + url.hash;
+          } catch {
+            newUrl = matchedBaseUrl + `?w=${newWidth}`;
+          }
+
+          const originalMatchText = match[0];
+          const replacementText = `![${matchedAlt}](${newUrl})`;
+          newLineText = targetLine.replace(originalMatchText, replacementText);
+          break;
+        }
+      }
+
+      if (newLineText !== targetLine) {
+        lines[lineNum - 1] = newLineText;
+        const newContent = lines.join("\n");
+        onContentChange(newContent);
+      }
+    },
+    [contentMd, onContentChange],
+  );
+
 
   // 에디터↔프리뷰 비례 스크롤 동기화. scrollTop 대입이 상대 패널의 scroll
   // 이벤트를 다시 발생시키므로, 값이 실제로 바뀔 때만 echo 플래그를 세워
@@ -295,6 +363,7 @@ export function PostEditor({
             bodyParts={previewBodyParts}
             loading={previewLoading}
             onContentChange={onContentChange}
+            onImageResize={handleImageResize}
             posts={allPosts}
             series={seriesList}
           />
@@ -331,7 +400,7 @@ export function PostEditor({
                   {previewLoading && <span>렌더 중…</span>}
                 </div>
                 {previewBodyParts.length > 0 ? (
-                  <PostPreview bodyParts={previewBodyParts} />
+                  <PostPreview bodyParts={previewBodyParts} onImageResize={handleImageResize} />
                 ) : (
                   <p className="text-sm text-muted-foreground">
                     본문을 입력하면 미리보기가 표시됩니다.
