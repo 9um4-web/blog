@@ -14,10 +14,11 @@ interface SeriesOption {
 }
 
 interface DirectiveMatch {
-  kind: "post" | "series";
+  kind: "post" | "series" | "colon" | "slash";
   query: string;
   start: number;
   end: number;
+  colonCount?: number;
 }
 
 interface Props extends Omit<React.ComponentProps<"textarea">, "value" | "onChange"> {
@@ -27,25 +28,94 @@ interface Props extends Omit<React.ComponentProps<"textarea">, "value" | "onChan
   series: SeriesOption[];
 }
 
+interface SuggestionOption {
+  key: string;
+  label: string;
+  sub: string;
+  value: string;
+  moveCursorOffset?: number;
+}
+
+const CONTAINER_DIRECTIVES: SuggestionOption[] = [
+  { key: "note", label: ":::note", sub: "노트 콜아웃", value: ":::note\n\n:::", moveCursorOffset: 8 },
+  { key: "info", label: ":::info", sub: "정보 콜아웃", value: ":::info\n\n:::", moveCursorOffset: 8 },
+  { key: "tip", label: ":::tip", sub: "팁 콜아웃", value: ":::tip\n\n:::", moveCursorOffset: 7 },
+  { key: "warning", label: ":::warning", sub: "주의 콜아웃", value: ":::warning\n\n:::", moveCursorOffset: 11 },
+  { key: "danger", label: ":::danger", sub: "위험 콜아웃", value: ":::danger\n\n:::", moveCursorOffset: 10 },
+  { key: "center", label: ":::center", sub: "가운데 정렬", value: ":::center\n\n:::", moveCursorOffset: 10 },
+  { key: "right", label: ":::right", sub: "오른쪽 정렬", value: ":::right\n\n:::", moveCursorOffset: 9 },
+  { key: "indent", label: ":::indent", sub: "들여쓰기 블록 (n=1~8)", value: ":::indent{n=1}\n\n:::", moveCursorOffset: 14 },
+  { key: "fold", label: ":::fold", sub: "접기 영역 지정 (h=2~6)", value: ":::fold{h=2}\n\n:::", moveCursorOffset: 12 },
+];
+
+const LEAF_DIRECTIVES: SuggestionOption[] = [
+  { key: "post", label: "::post", sub: "글 카드 임베드", value: "::post{slug=}", moveCursorOffset: 13 },
+  { key: "series", label: "::series", sub: "시리즈 카드 임베드", value: "::series{id=}", moveCursorOffset: 13 },
+  { key: "youtube", label: "::youtube", sub: "유튜브 영상 임베드", value: "::youtube[]", moveCursorOffset: 11 },
+];
+
+const TEXT_DIRECTIVES: SuggestionOption[] = [
+  { key: "postlink", label: ":postlink", sub: "인라인 글 링크", value: ":postlink[텍스트]{slug=}", moveCursorOffset: 10 },
+];
+
+const GENERAL_MARKDOWN_SUGGESTIONS: SuggestionOption[] = [
+  { key: "h2", label: "H2 Heading", sub: "## 제목", value: "## ", moveCursorOffset: 3 },
+  { key: "h3", label: "H3 Heading", sub: "### 제목", value: "### ", moveCursorOffset: 4 },
+  { key: "h4", label: "H4 Heading", sub: "#### 제목", value: "#### ", moveCursorOffset: 5 },
+  { key: "bullet", label: "Bullet List", sub: "- 항목", value: "- ", moveCursorOffset: 2 },
+  { key: "number", label: "Numbered List", sub: "1. 항목", value: "1. ", moveCursorOffset: 3 },
+  { key: "task", label: "Task List", sub: "- [ ] 할 일", value: "- [ ] ", moveCursorOffset: 6 },
+  { key: "quote", label: "Quote", sub: "> 인용구", value: "> ", moveCursorOffset: 2 },
+  { key: "code", label: "Code Block", sub: "```javascript ... ```", value: "```javascript\n\n```", moveCursorOffset: 14 },
+  { key: "table", label: "Table", sub: "| 표 |", value: "|  |  |\n|---|---|\n|  |  |", moveCursorOffset: 2 },
+  { key: "hr", label: "Horizontal Rule", sub: "--- 구분선", value: "---", moveCursorOffset: 3 },
+  { key: "inline-math", label: "Inline Math", sub: "$수식$", value: "$ $", moveCursorOffset: 2 },
+  { key: "block-math", label: "Block Math", sub: "$$블록 수식$$", value: "$$\n\n$$", moveCursorOffset: 3 },
+  ...CONTAINER_DIRECTIVES,
+  ...LEAF_DIRECTIVES,
+  ...TEXT_DIRECTIVES,
+];
+
 /**
- * ::post{slug=...} / :postlink[...]{slug=...} / ::series{id=...} 를 타이핑하는 중일 때
- * 커서 위치에 후보 목록을 띄운다. 값 부분(slug/id)이 `[a-z0-9-]`/숫자 밖의 문자(주로 `}`)를
- * 만나는 순간 정규식이 더 이상 매치되지 않아 자동으로 닫힌다.
+ * ::post{slug=...} / :postlink[...]{slug=...} / ::series{id=...} / 콜론(:) / 슬래시(/) 를 타이핑하는 중일 때
+ * 커서 위치에 후보 목록을 띄운다.
  */
 function detectDirectiveContext(text: string, cursor: number): DirectiveMatch | null {
   const windowStart = Math.max(0, cursor - 300);
   const before = text.slice(windowStart, cursor);
 
+  // 1. 글 임베드/링크 슬러그 자동완성 (최우선)
   const postMatch = /(?:::post|:postlink\[[^\]\n]*\])\{slug=([a-z0-9-]*)$/.exec(before);
   if (postMatch) {
     const query = postMatch[1];
     return { kind: "post", query, start: cursor - query.length, end: cursor };
   }
 
+  // 2. 시리즈 임베드 ID 자동완성 (최우선)
   const seriesMatch = /::series\{id=([0-9]*)$/.exec(before);
   if (seriesMatch) {
     const query = seriesMatch[1];
     return { kind: "series", query, start: cursor - query.length, end: cursor };
+  }
+
+  // 3. 콜론(:) 기반 직접 자동완성
+  const colonMatch = /(?:\n|^|\s)(:{1,3})([a-zA-Z0-9-]*)$/.exec(before);
+  if (colonMatch) {
+    const colons = colonMatch[1];
+    const query = colonMatch[2];
+    const prefixLen = colonMatch[0].length - colons.length - query.length;
+    const start = windowStart + colonMatch.index + prefixLen;
+    return { kind: "colon", query, start, end: cursor, colonCount: colons.length };
+  }
+
+  // 4. 슬래시(/) 슬래시 커맨드 자동완성
+  const slashMatch = /(?:\n|^|\s)(\/)([a-zA-Z0-9-]*)$/.exec(before);
+  if (slashMatch) {
+    const slash = slashMatch[1];
+    const query = slashMatch[2];
+    const prefixLen = slashMatch[0].length - slash.length - query.length;
+    const start = windowStart + slashMatch.index + prefixLen;
+    return { kind: "slash", query, start, end: cursor };
   }
 
   return null;
@@ -63,11 +133,26 @@ function filterSeries(series: SeriesOption[], query: string): SeriesOption[] {
   return series.filter((s) => String(s.id).startsWith(query)).slice(0, 8);
 }
 
+function filterSuggestions(options: SuggestionOption[], query: string): OptionItem[] {
+  const q = query.toLowerCase();
+  return options
+    .filter((opt) => opt.key.includes(q) || opt.label.toLowerCase().includes(q) || opt.sub.toLowerCase().includes(q))
+    .map((opt) => ({
+      key: opt.key,
+      label: opt.label,
+      sub: opt.sub,
+      value: opt.value,
+      moveCursorOffset: opt.moveCursorOffset,
+    }))
+    .slice(0, 8);
+}
+
 interface OptionItem {
   key: string;
   label: string;
   sub: string;
   value: string;
+  moveCursorOffset?: number;
 }
 
 function computeOptions(
@@ -76,19 +161,35 @@ function computeOptions(
   series: SeriesOption[],
 ): OptionItem[] {
   if (next === null) return [];
-  return next.kind === "post"
-    ? filterPosts(posts, next.query).map((p) => ({
-        key: p.slug,
-        label: p.title,
-        sub: p.slug,
-        value: p.slug,
-      }))
-    : filterSeries(series, next.query).map((s) => ({
-        key: String(s.id),
-        label: s.name,
-        sub: `#${s.id}`,
-        value: String(s.id),
-      }));
+  if (next.kind === "post") {
+    return filterPosts(posts, next.query).map((p) => ({
+      key: p.slug,
+      label: p.title,
+      sub: p.slug,
+      value: p.slug,
+    }));
+  }
+  if (next.kind === "series") {
+    return filterSeries(series, next.query).map((s) => ({
+      key: String(s.id),
+      label: s.name,
+      sub: `#${s.id}`,
+      value: String(s.id),
+    }));
+  }
+  if (next.kind === "colon") {
+    const list =
+      next.colonCount === 3
+        ? CONTAINER_DIRECTIVES
+        : next.colonCount === 2
+        ? LEAF_DIRECTIVES
+        : TEXT_DIRECTIVES;
+    return filterSuggestions(list, next.query);
+  }
+  if (next.kind === "slash") {
+    return filterSuggestions(GENERAL_MARKDOWN_SUGGESTIONS, next.query);
+  }
+  return [];
 }
 
 // 드롭다운 CSS(max-h-56/w-72)와 맞춰야 화면 밖으로 나가는지 미리 판단할 수 있다.
@@ -233,11 +334,14 @@ export function DirectiveAutocompleteTextarea({
     };
   }, [match]);
 
-  const applySelection = (item: { value: string }) => {
+  const applySelection = (item: OptionItem) => {
     const el = textareaRef.current;
     if (!el || !match) return;
     const newValue = value.slice(0, match.start) + item.value + value.slice(match.end);
-    const newCursor = match.start + item.value.length;
+    let newCursor = match.start + item.value.length;
+    if (item.moveCursorOffset !== undefined) {
+      newCursor = match.start + item.moveCursorOffset;
+    }
     onValueChange(newValue);
     setMatch(null);
     // React가 새 value를 커밋한 다음 틱에 커서를 옮겨야 위치가 클램프되지 않는다
