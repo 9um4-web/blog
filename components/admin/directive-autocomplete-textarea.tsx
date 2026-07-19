@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
+import { ImagePlus } from "lucide-react";
+import { toast } from "sonner";
 
 interface PostOption {
   title: string;
@@ -271,6 +273,102 @@ export function DirectiveAutocompleteTextarea({
   const [match, setMatch] = useState<DirectiveMatch | null>(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isDragActive, setIsDragActive] = useState(false);
+  const dragCounter = useRef(0);
+  const [uploading, setUploading] = useState(false);
+
+  const uploadFile = async (file: File) => {
+    setUploading(true);
+    const toastId = toast.loading("이미지를 업로드하는 중...");
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      const res = await fetch("/api/images", { method: "POST", body: formData });
+      const body = await res.json();
+      if (!res.ok || !body.markdown) {
+        toast.error(body.error ?? "업로드에 실패했습니다.", { id: toastId });
+        return;
+      }
+
+      const el = textareaRef.current;
+      if (el) {
+        const start = el.selectionStart ?? value.length;
+        const end = el.selectionEnd ?? start;
+        const hasPrevNewline = start === 0 || value[start - 1] === "\n";
+        const hasNextNewline = end === value.length || value[end] === "\n";
+        const prefix = hasPrevNewline ? "" : "\n";
+        const suffix = hasNextNewline ? "" : "\n";
+        const insertText = `${prefix}${body.markdown}${suffix}`;
+
+        const newValue = value.slice(0, start) + insertText + value.slice(end);
+        onValueChange(newValue);
+        const newCursor = start + insertText.length;
+        setTimeout(() => {
+          el.focus();
+          el.setSelectionRange(newCursor, newCursor);
+        }, 0);
+      }
+      toast.success("이미지를 본문에 삽입했습니다.", { id: toastId });
+    } catch {
+      toast.error("업로드 중 네트워크 오류가 발생했습니다.", { id: toastId });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragActive(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current <= 0) {
+      setIsDragActive(false);
+      dragCounter.current = 0;
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+    dragCounter.current = 0;
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const files = Array.from(e.dataTransfer.files);
+      const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+      if (imageFiles.length > 0) {
+        for (const file of imageFiles) {
+          await uploadFile(file);
+        }
+      }
+    }
+  };
+
+  const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+      const files = Array.from(e.clipboardData.files);
+      const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+      if (imageFiles.length > 0) {
+        e.preventDefault();
+        for (const file of imageFiles) {
+          await uploadFile(file);
+        }
+      }
+    }
+  };
 
   const options = computeOptions(match, posts, series);
 
@@ -378,7 +476,13 @@ export function DirectiveAutocompleteTextarea({
   };
 
   return (
-    <div className="relative">
+    <div
+      className="relative"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <Textarea
         {...props}
         ref={textareaRef}
@@ -402,8 +506,15 @@ export function DirectiveAutocompleteTextarea({
           setMatch(null);
           props.onBlur?.(e);
         }}
+        onPaste={handlePaste}
         className={className}
       />
+      {isDragActive && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center rounded-md border-2 border-dashed border-primary bg-background/80 backdrop-blur-sm pointer-events-none">
+          <ImagePlus className="mb-2 size-8 animate-bounce text-primary" />
+          <span className="text-sm font-medium">여기에 이미지 파일을 드롭하여 업로드</span>
+        </div>
+      )}
       {match && options.length > 0 && (
         <div
           className="fixed z-20 max-h-56 w-72 overflow-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
