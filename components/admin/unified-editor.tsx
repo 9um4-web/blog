@@ -12,7 +12,7 @@ import {
 import { DirectiveAutocompleteTextarea } from "@/components/admin/directive-autocomplete-textarea";
 import { Button } from "@/components/ui/button";
 
-import { setupImageResizing } from "./image-resize";
+import { type ImageResizeHandler, setupImageResizing } from "./image-resize";
 
 interface PostOption {
   title: string;
@@ -30,7 +30,7 @@ interface UnifiedEditorProps {
   loading: boolean;
   /** 블록 커밋으로 본문이 바뀔 때 호출 — 호출자가 재렌더(schedulePreview)까지 담당 */
   onContentChange: (value: string) => void;
-  onImageResize?: (lineNum: number, originalSrc: string, newWidth: string) => void;
+  onImageResize?: ImageResizeHandler;
   posts: PostOption[];
   series: SeriesOption[];
   images: { id: number; filename: string; size: number; mimeType: string }[];
@@ -157,8 +157,20 @@ export function UnifiedEditor({
 
   const restoreDom = useCallback((s: EditSession | null) => {
     if (s?.kind !== "block") return;
-    s.mountEl.remove();
-    s.hiddenEl.style.display = "";
+    try {
+      if (s.mountEl && s.mountEl.parentNode) {
+        s.mountEl.remove();
+      }
+    } catch (e) {
+      console.warn("Failed to remove editor mount node:", e);
+    }
+    try {
+      if (s.hiddenEl) {
+        s.hiddenEl.style.display = "";
+      }
+    } catch (e) {
+      console.warn("Failed to restore block display style:", e);
+    }
   }, []);
 
   // 주의: setSession 업데이터 안에서 DOM 복구/onContentChange 같은 부수효과를 내면

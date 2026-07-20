@@ -116,21 +116,42 @@ body {
   color: var(--shiki-dark, inherit) !important;
 }
 
-/* ---------- 유튜브 임베드 (::youtube[영상ID]) ---------- */
+/* ---------- 유튜브 및 기타 임베드 위젯 ---------- */
+
+.post-body .embed-widget {
+  position: relative;
+  margin-block: 1.5rem;
+  max-width: 100%;
+}
+
+/* 각 플랫폼 embed 콘텐츠의 실제 최대 렌더 폭에 맞춰 래퍼를 제한
+   (넘치면 오른쪽에 빈 여백만 생긴다) */
+.post-body .x-embed {
+  max-width: 550px;
+}
+
+.post-body .instagram-embed {
+  max-width: 540px;
+}
+
+.post-body .bluesky-embed {
+  max-width: 600px;
+}
+.post-body .embed-widget iframe,
+.post-body .embed-widget video {
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 2px);
+}
 
 .post-body .video-embed {
-  position: relative;
   aspect-ratio: 16 / 9;
-  margin-block: 1.5rem;
 }
 
 .post-body .video-embed iframe {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) + 2px);
 }
 
 /* ---------- 정렬/들여쓰기 (:::center, :::right, :::indent{n=2}) ---------- */
@@ -434,7 +455,34 @@ body {
   right: -4px;
 }
 
-.image-resize-container:hover .image-resize-handle {
+/* 하단(높이) 핸들 — 좌우 핸들을 90도 돌린 모양 */
+.image-resize-handle.bottom {
+  top: auto;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.image-resize-handle.bottom::before {
+  left: 15px;
+  right: 15px;
+  top: 2px;
+  bottom: auto;
+  width: auto;
+  height: 2px;
+  border-left: none;
+  border-top: 1px double var(--muted-foreground);
+}
+
+.image-resize-handle.bottom:hover {
+  transform: translateX(-50%) scale(1.1);
+}
+
+.image-resize-container:hover .image-resize-handle,
+.embed-widget:hover .image-resize-handle {
   opacity: 0.6;
 }
 

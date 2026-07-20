@@ -3,12 +3,13 @@
 import "katex/dist/katex.min.css";
 import Link from "next/link";
 import { useCallback, useEffect, useRef } from "react";
+import { attachEmbedAutosize } from "@/components/post/embed-autosize";
 import { attachFootnotePreview } from "@/components/post/footnote-preview";
 import { renderVisibleMermaid } from "@/components/post/mermaid-lazy";
 import { PostCardContent } from "@/components/post/post-card-content";
 import { SeriesAccordionCard } from "@/components/post/series-card-parts";
 import type { HydratedPostBodyPart } from "@/lib/post-embeds";
-import { setupImageResizing } from "./image-resize";
+import { type ImageResizeHandler, setupImageResizing } from "./image-resize";
 
 /**
  * 에디터 미리보기 본문. 게시 뷰(PostView)의 본문 렌더와 동일하게
@@ -19,7 +20,7 @@ export function PostPreview({
   onImageResize,
 }: {
   bodyParts: HydratedPostBodyPart[];
-  onImageResize?: (lineNum: number, originalSrc: string, newWidth: string) => void;
+  onImageResize?: ImageResizeHandler;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -35,6 +36,12 @@ export function PostPreview({
   useEffect(() => {
     if (!bodyRef.current) return;
     return attachFootnotePreview(bodyRef.current);
+  }, [bodyParts]);
+
+  // SNS embed iframe 높이를 실제 게시물 높이에 맞게 자동 조절
+  useEffect(() => {
+    if (!bodyRef.current) return;
+    return attachEmbedAutosize(bodyRef.current);
   }, [bodyParts]);
 
   // 이미지 드래그 리사이즈 핸들 부착 및 드래그 로직 처리

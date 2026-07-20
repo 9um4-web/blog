@@ -190,60 +190,129 @@ export function PostEditor({
   }, [mode, schedulePreview]);
 
   const handleImageResize = useCallback(
-    (lineNum: number, originalSrc: string, newWidth: string) => {
+    (
+      lineNum: number,
+      originalSrc: string,
+      newSize: string,
+      dimension: "width" | "height" = "width",
+    ) => {
+      const newWidth = newSize;
       const lines = contentMd.split("\n");
       const targetLine = lines[lineNum - 1];
       if (!targetLine) return;
 
-      let baseSrc = originalSrc;
-      try {
-        const url = new URL(originalSrc, "http://localhost");
-        baseSrc = url.pathname;
-      } catch {}
-
-      const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
-      let match;
       let newLineText = targetLine;
 
-      while ((match = imageRegex.exec(targetLine)) !== null) {
-        const matchedAlt = match[1];
-        const matchedUrl = match[2];
-        let matchedBaseUrl = matchedUrl;
-        try {
-          const url = new URL(matchedUrl, "http://localhost");
-          matchedBaseUrl = url.pathname;
-        } catch {}
+      // 1. 디렉티브 리사이즈 처리 (::youtube, ::x, ::soundcloud 등)
+      if (targetLine.trim().startsWith("::")) {
+        const directiveRegex = /^(\s*)::(youtube|x|soundcloud|instagram|pinterest|bluesky|video)(?:\[(.*?)\])?(?:\{(.*?)\})?$/i;
+        const match = directiveRegex.exec(targetLine);
 
-        if (matchedBaseUrl === baseSrc) {
-          let newUrl = matchedUrl;
-          try {
-            const url = new URL(matchedUrl, "http://localhost");
-            const isHash = url.hash.includes("w=") || url.hash.includes("width=");
+        if (match) {
+          const indent = match[1];
+          const name = match[2];
+          const label = match[3];
+          const attrsStr = match[4];
 
-            // Remove existing height parameters to maintain aspect ratio
-            url.searchParams.delete("h");
-            url.searchParams.delete("height");
-
-            if (isHash) {
-              const hashParams = new URLSearchParams(url.hash.slice(1));
-              hashParams.delete("h");
-              hashParams.delete("height");
-              if (hashParams.has("w")) hashParams.set("w", newWidth);
-              else hashParams.set("width", newWidth);
-              url.hash = hashParams.toString();
-            } else {
-              if (url.searchParams.has("width")) url.searchParams.set("width", newWidth);
-              else url.searchParams.set("w", newWidth);
+          // 속성 파싱
+          const attrs: Record<string, string> = {};
+          if (attrsStr) {
+            const attrRegex = /([a-zA-Z0-9_-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s,}]+))/g;
+            let attrMatch;
+            while ((attrMatch = attrRegex.exec(attrsStr)) !== null) {
+              const key = attrMatch[1];
+              const val = attrMatch[2] || attrMatch[3] || attrMatch[4];
+              attrs[key] = val;
             }
-            newUrl = url.pathname + url.search + url.hash;
-          } catch {
-            newUrl = matchedBaseUrl + `?w=${newWidth}`;
           }
 
-          const originalMatchText = match[0];
-          const replacementText = `![${matchedAlt}](${newUrl})`;
-          newLineText = targetLine.replace(originalMatchText, replacementText);
-          break;
+          if (dimension === "height") {
+            // 높이 드래그 → h/height 속성 갱신
+            if ("height" in attrs) {
+              attrs.height = newSize;
+            } else {
+              attrs.h = newSize;
+            }
+          } else {
+            // 비율 유지를 위해 유튜브/비디오는 기존 높이 속성 제거 (사운드클라우드 등 다른 임베드는 높이 영구 유지)
+            const preserveRatioWidgets = ["youtube", "video"];
+            if (preserveRatioWidgets.includes(name.toLowerCase())) {
+              delete attrs.h;
+              delete attrs.height;
+            }
+
+            // 너비 업데이트
+            if ("width" in attrs) {
+              attrs.width = newWidth;
+            } else {
+              attrs.w = newWidth;
+            }
+          }
+
+          // 속성을 다시 문자열로 직렬화
+          const pairs = Object.entries(attrs).map(([k, v]) => {
+            if (/[\s,"'{}]/.test(v)) {
+              return `${k}="${v.replace(/"/g, '\\"')}"`;
+            }
+            return `${k}=${v}`;
+          });
+          const newAttrsStr = pairs.length > 0 ? `{${pairs.join(" ")}}` : "";
+          const labelStr = label !== undefined ? `[${label}]` : "";
+
+          newLineText = `${indent}::${name}${labelStr}${newAttrsStr}`;
+        }
+      } else {
+        // 2. 이미지 마크다운 리사이즈 처리 (기존 로직) — 이미지는 너비만 지원
+        if (dimension === "height") return;
+        let baseSrc = originalSrc;
+        try {
+          const url = new URL(originalSrc, "http://localhost");
+          baseSrc = url.pathname;
+        } catch {}
+
+        const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
+        let match;
+
+        while ((match = imageRegex.exec(targetLine)) !== null) {
+          const matchedAlt = match[1];
+          const matchedUrl = match[2];
+          let matchedBaseUrl = matchedUrl;
+          try {
+            const url = new URL(matchedUrl, "http://localhost");
+            matchedBaseUrl = url.pathname;
+          } catch {}
+
+          if (matchedBaseUrl === baseSrc) {
+            let newUrl = matchedUrl;
+            try {
+              const url = new URL(matchedUrl, "http://localhost");
+              const isHash = url.hash.includes("w=") || url.hash.includes("width=");
+
+              // Remove existing height parameters to maintain aspect ratio
+              url.searchParams.delete("h");
+              url.searchParams.delete("height");
+
+              if (isHash) {
+                const hashParams = new URLSearchParams(url.hash.slice(1));
+                hashParams.delete("h");
+                hashParams.delete("height");
+                if (hashParams.has("w")) hashParams.set("w", newWidth);
+                else hashParams.set("width", newWidth);
+                url.hash = hashParams.toString();
+              } else {
+                if (url.searchParams.has("width")) url.searchParams.set("width", newWidth);
+                else url.searchParams.set("w", newWidth);
+              }
+              newUrl = url.pathname + url.search + url.hash;
+            } catch {
+              newUrl = matchedBaseUrl + `?w=${newWidth}`;
+            }
+
+            const originalMatchText = match[0];
+            const replacementText = `![${matchedAlt}](${newUrl})`;
+            newLineText = targetLine.replace(originalMatchText, replacementText);
+            break;
+          }
         }
       }
 

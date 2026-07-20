@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import type { HeadingNode } from "@/lib/domain/markdown";
 import type { GiscusConfig } from "@/lib/db/queries";
 import type { HydratedPostBodyPart } from "@/lib/post-embeds";
+import { attachEmbedAutosize } from "./embed-autosize";
 import { attachFootnotePreview } from "./footnote-preview";
 import { PostCardContent } from "./post-card-content";
 import { renderVisibleMermaid } from "./mermaid-lazy";
@@ -68,6 +69,12 @@ export function PostView({
   useEffect(() => {
     if (!bodyRef.current) return;
     return attachFootnotePreview(bodyRef.current);
+  }, [bodyParts]);
+
+  // SNS embed iframe 높이를 실제 게시물 높이에 맞게 자동 조절
+  useEffect(() => {
+    if (!bodyRef.current) return;
+    return attachEmbedAutosize(bodyRef.current);
   }, [bodyParts]);
 
   // 본문 헤딩 클릭 → 해당 섹션 접기/펼치기 (트리 구조 기준, 스펙 4.1)

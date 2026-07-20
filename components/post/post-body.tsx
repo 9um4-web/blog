@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef } from "react";
 import type { HydratedPostBodyPart } from "@/lib/post-embeds";
+import { attachEmbedAutosize } from "./embed-autosize";
 import { attachFootnotePreview } from "./footnote-preview";
 import { renderVisibleMermaid } from "./mermaid-lazy";
 import { PostCardContent } from "./post-card-content";
@@ -28,6 +29,12 @@ export function usePostBodyEffects(bodyParts: HydratedPostBodyPart[]) {
   useEffect(() => {
     if (!bodyRef.current) return;
     return attachFootnotePreview(bodyRef.current);
+  }, [bodyParts]);
+
+  // SNS embed iframe 높이를 실제 게시물 높이에 맞게 자동 조절
+  useEffect(() => {
+    if (!bodyRef.current) return;
+    return attachEmbedAutosize(bodyRef.current);
   }, [bodyParts]);
 
   return { bodyRef, initMermaid };

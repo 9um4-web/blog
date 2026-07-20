@@ -313,4 +313,41 @@ describe("renderPostHtml", () => {
       expect(html2).not.toContain("style=");
     });
   });
+
+  describe("임베드 위젯 크기 및 렌더링", () => {
+    it("::youtube에 w, h 속성이 주어지면 인라인 스타일로 변환한다", async () => {
+      const html = await renderPostHtml("::youtube[dQw4w9WgXcQ]{w=500 h=300}");
+      expect(html).toContain('style="width: 500px; height: 300px; aspect-ratio: auto"');
+      expect(html).toContain('data-embed-type="youtube"');
+    });
+
+    it("::video에 w 속성만 주어지면 height는 지정하지 않고 aspect-ratio를 유지한다", async () => {
+      const html = await renderPostHtml("::video[https://example.com/video.mp4]{w=600}");
+      expect(html).toContain('style="width: 600px; aspect-ratio: 16 / 9"');
+      expect(html).toContain("<video");
+    });
+
+    it("::x, ::soundcloud, ::instagram, ::pinterest, ::bluesky가 올바른 iframe으로 렌더링된다", async () => {
+      const xHtml = await renderPostHtml("::x[https://x.com/user/status/123456]");
+      expect(xHtml).toContain('src="https://platform.twitter.com/embed/Tweet.html?id=123456"');
+
+      const scHtml = await renderPostHtml("::soundcloud[https://soundcloud.com/artist/track]");
+      expect(scHtml).toContain('src="https://w.soundcloud.com/player/?url=https%3A%2F%2Fsoundcloud.com%2Fartist%2Ftrack');
+
+      const instaHtml = await renderPostHtml("::instagram[https://www.instagram.com/p/ABCDEFG/]");
+      expect(instaHtml).toContain('src="https://www.instagram.com/p/ABCDEFG/embed/captioned/"');
+
+      const pinHtml = await renderPostHtml("::pinterest[https://www.pinterest.com/pin/9876543/]");
+      expect(pinHtml).toContain('src="https://assets.pinterest.com/ext/embed.html?id=9876543"');
+
+      // DID 형태 URL은 네트워크 해석 없이 그대로 embed 주소가 된다
+      const bskyHtml = await renderPostHtml("::bluesky[https://bsky.app/profile/did:plc:z72i7hdynmk6r22z27h6tvur/post/rkey123]");
+      expect(bskyHtml).toContain('src="https://embed.bsky.app/embed/did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/rkey123?id=rkey123"');
+    });
+
+    it("소셜 임베드에 잘못된 URL이 오면 에러 메시지를 렌더링한다", async () => {
+      const html = await renderPostHtml("::x[invalid-url]");
+      expect(html).toContain("[x: 잘못된 URL]");
+    });
+  });
 });

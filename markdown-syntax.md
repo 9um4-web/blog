@@ -30,17 +30,54 @@
 
 `remark-directive` 기반. 컨테이너 디렉티브(`:::`)는 **반드시 닫는 `:::`가 있어야 함** — 안 닫으면 문서 끝까지 그 블록에 먹힘.
 
-### 유튜브 임베드
+### 유튜브 및 비디오 임베드
 
-```
-::youtube[dQw4w9WgXcQ]
-```
-또는
-```
-::youtube{id=dQw4w9WgXcQ}
-```
+- 유튜브:
+  ```
+  ::youtube[영상ID]
+  ::youtube{id=영상ID}
+  ::youtube{id=영상ID w=450 h=250}
+  ```
+  영상 ID만(URL 전체 아님), 영숫자/`-`/`_` 6~20자.
 
-영상 ID만(URL 전체 아님), 영숫자/`-`/`_` 6~20자.
+- 비디오 파일:
+  ```
+  ::video[비디오URL]
+  ::video{url=비디오URL w=450}
+  ```
+  직접 재생 가능한 비디오 파일(MP4 등)의 URL.
+
+- `w` (가로), `h` (세로) 속성을 통해 크기를 조절할 수 있습니다 (기본단위 px, %나 rem 등 CSS 단위 사용 가능). 에디터 미리보기에서 드래그하여 크기를 조절하면 자동으로 마크다운 속성 블록이 갱신됩니다.
+
+### 소셜 미디어 및 외부 서비스 임베드 (SoundCloud, X, Instagram, Pinterest, Bluesky)
+
+- X (Twitter):
+  ```
+  ::x[포스트URL]
+  ::x{url=포스트URL w=500}
+  ```
+- SoundCloud:
+  ```
+  ::soundcloud[트랙혹은재생목록URL]
+  ::soundcloud{url=URL h=166}
+  ```
+- Instagram:
+  ```
+  ::instagram[포스트혹은릴스URL]
+  ::instagram{url=URL w=100%}
+  ```
+- Pinterest:
+  ```
+  ::pinterest[핀URL]
+  ::pinterest{url=URL w=345}
+  ```
+- Bluesky:
+  ```
+  ::bluesky[포스트URL]
+  ::bluesky{url=URL w=450}
+  ```
+
+비디오와 마찬가지로 `w` 또는 `h` 속성을 통해 크기를 설정하거나 에디터 미리보기에서 마우스 드래그로 조절이 가능합니다.
 
 ### 포스트/시리즈 카드 임베드
 
