@@ -8,6 +8,9 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       # 1. 깃허브 저장소 코드 가져오기
@@ -38,25 +41,78 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 여기서 빌드가 실패하면 다음 단계로 가지 않고 멈춥니다.
+      # 여기서 빌드가 실패하면 다음 단계로 가지 않고 멈춤
       - name: Build Test
-        run: npm run build
+        run: npm run build > build_log.txt 2>&1
 
-      # ❌ [빌드 실패 시] 디스코드 & 텔레그램 알림 전송
+      # ❌ [빌드 실패 시] 디스코드 & 텔레그램 알림 및 로그 파일 업로드
       - name: Alert Build Failure
         if: failure()
         run: |
-          # 1. Discord 알림
+          # 1. 텔레그램 알림 발송 (단문 상태 알림)
           curl -H "Content-Type: application/json" \
                -X POST \
-               -d '{"embeds": [{"title": "❌ 빌드 실패 (Build Error)", "description": "GitHub Actions 빌드 검증 중 에러가 발생했습니다. 코드를 확인하세요.", "color": 16711680}]}' \
+               -d '{"chat_id": "${{ secrets.TELEGRAM_CHAT_ID }}", "text": "❌ <b>빌드 실패 (Build Error)</b>\nGitHub Actions 빌드 검증 중 에러가 발생했습니다. (디스코드에서 상세 로그 파일 확인 요망)", "parse_mode": "HTML"}' \
+               "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage"
+
+          # 2. 디스코드 배포 실패 기본 알림 발송
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d '{"embeds": [{"title": "❌ 배포 실패 (Deploy Failed)", "description": "도커 이미지 빌드가 비정상 중단되었습니다. (상세 내역은 아래 로그 카드를 참고하세요)", "color": 16711680}]}' \
                "${{ secrets.DISCORD_WEBHOOK_URL }}"
 
-          # 2. Telegram 알림
+          # 3. 디스코드 에러 요약본 엠베드 카드 발송 (마지막 15줄을 jq로 안전하게 이스케이프 처리하여 전송)
+          SUMMARY=$(tail -n 15 build_log.txt)
+          JSON_PAYLOAD=$(jq -n --arg summary "$SUMMARY" '{
+            embeds: [{
+              title: "❌ 빌드 실패 상세 내역 (Build Error Detail)",
+              description: ("**에러 요약:**\n```bash\n" + $summary + "\n```"),
+              color: 16711680
+            }]
+          }')
+          
           curl -H "Content-Type: application/json" \
                -X POST \
-               -d '{"chat_id": "${{ secrets.TELEGRAM_CHAT_ID }}", "text": "❌ *빌드 실패 (Build Error)*\n\nGitHub Actions 빌드 검증 중 에러가 발생했습니다. 코드를 확인하세요.", "parse_mode": "Markdown"}' \
-               "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage"
+               -d "$JSON_PAYLOAD" \
+               "${{ secrets.DISCORD_WEBHOOK_URL }}"
+
+          # 4. 마지막으로 전체 빌드 로그 파일 업로드
+          curl -F "files[0]=@build_log.txt" "${{ secrets.DISCORD_WEBHOOK_URL }}"
+
+      # 🐳 Docker Buildx 및 로그인 설정 (빌드 통과 시만 실행)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 🐳 blog-app 이미지 빌드 및 GHCR에 푸시
+      - name: Build and push blog-app image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: runner
+          push: true
+          tags: |
+            ghcr.io/9um4-web/blog-app:latest
+            ghcr.io/9um4-web/blog-app:${{ github.sha }}
+
+      # 🐳 blog-migrate 이미지 빌드 및 GHCR에 푸시
+      - name: Build and push blog-migrate image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: build
+          push: true
+          tags: |
+            ghcr.io/9um4-web/blog-migrate:latest
+            ghcr.io/9um4-web/blog-migrate:${{ github.sha }}
 
       # 3. [빌드 통과 시] 우리 서버로 배포 웹훅 송신 (curl)
       - name: Trigger Webhook Deploy

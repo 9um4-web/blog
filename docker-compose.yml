@@ -21,9 +21,7 @@ services:
 
   # 앱 시작 전에 마이그레이션을 1회 실행하는 서비스
   migrate:
-    build:
-      context: .
-      target: build
+    image: ghcr.io/9um4-web/blog-migrate:latest
     command: npx drizzle-kit migrate
     environment:
       DATABASE_URL: postgres://blog:${POSTGRES_PASSWORD}@db:5432/blog
@@ -32,9 +30,7 @@ services:
         condition: service_healthy
 
   app:
-    build:
-      context: .
-      target: runner
+    image: ghcr.io/9um4-web/blog-app:latest
     restart: unless-stopped
     ports:
       - "3000:3000"
