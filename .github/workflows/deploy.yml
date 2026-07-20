@@ -137,38 +137,50 @@ jobs:
           TRIVY_USERNAME: ${{ github.actor }}
           TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
 
-      # 3. [빌드 통과 시] 우리 서버로 배포 웹훅 송신 (curl)
+      # 3. [빌드 통과 시] 우리 서버로 배포 트리거 — Cloudflare Tunnel의 SSH ingress 경유.
       #
-      # ⚠️ HMAC 서명과 커스텀 인증 헤더는 서로 다른 시크릿을 쓴다(WEBHOOK_HMAC_SECRET /
-      # WEBHOOK_AUTH_TOKEN). 예전엔 둘 다 WEBHOOK_SECRET_SIGNATURE 하나를 재사용했는데,
-      # 그러면 두 계층 인증이 사실상 단일 시크릿과 같아진다 — 헤더 값(평문)이 access log 등에
-      # 남아 유출되면 서명 위조까지 가능해지는 구조. 두 값을 분리해 한쪽이 새도 다른 쪽 인증
-      # 계층은 살아있게 한다.
+      # ⚠️ Cloudflare 무료 플랜의 Bot Fight Mode는 WAF Custom Rule로 스킵이 안 되는
+      # 구조적 제약이 있어(Ruleset Engine 밖에서 동작), 공개 HTTPS 웹훅으로는 GitHub
+      # Actions의 요청이 계속 managed_challenge에 막혔다. Bot Fight Mode는 HTTP만
+      # 검사하므로, SSH(Cloudflare Tunnel 터널링)로 우회한다.
       #
-      # 적용 전 GitHub 저장소 Settings > Secrets에서:
-      #   1. 새 시크릿 WEBHOOK_AUTH_TOKEN 생성 (WEBHOOK_SECRET_SIGNATURE와 다른 값으로)
-      #   2. WEBHOOK_SECRET_SIGNATURE는 WEBHOOK_HMAC_SECRET으로 이름만 바꿔 유지(값은 그대로 둬도 됨)
-      # 서버 측(server.js)도 헤더 검증 값을 WEBHOOK_AUTH_TOKEN 기준으로 바꿔야 한다 — 이 저장소
-      # 밖에 있는 파일이라 여기서 자동으로 반영되지 않음. docs/server-side-followups.md 참고.
-      - name: Trigger Webhook Deploy
-        id: trigger_deploy
+      # 서버에 도달한 뒤 실행되는 명령은 authorized_keys의 forced command로 고정돼 있어서
+      # (~/blog-deploy/trigger-deploy.sh) 이 SSH 키가 새더라도 공격자가 임의 명령을 못 돌리고
+      # 딱 그 스크립트만 실행할 수 있다. HMAC 시크릿도 서버의 .env에서만 읽으므로 GitHub
+      # Actions 쪽엔 웹훅 시크릿을 따로 등록할 필요가 없다(SSH 키/서비스 토큰만 있으면 됨).
+      # Cloudflare/서버 쪽 설정 절차는 docs/ssh-tunnel-deploy-trigger.md 참고.
+      - name: Install cloudflared
         run: |
-          PAYLOAD='{"ref":"refs/heads/main"}'
-          SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "${{ secrets.WEBHOOK_HMAC_SECRET }}" | cut -d' ' -f2)
+          curl -sL -o cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          chmod +x cloudflared
+          sudo mv cloudflared /usr/local/bin/cloudflared
 
-          RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X POST \
-            -H "X-Hub-Signature-256: sha256=$SIGNATURE" \
-            -H "${{ secrets.CUSTOM_AUTH_HEADER_NAME }}: ${{ secrets.WEBHOOK_AUTH_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -H "User-Agent: 9um4-blog-deploy-webhook/1.0 (+github-actions)" \
-            -d "$PAYLOAD" \
-            "https://webhook-blog.9um4.com/deploy-webhook")
+      - name: Trigger Deploy via SSH over Cloudflare Tunnel
+        id: trigger_deploy
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          CF_SERVICE_TOKEN_ID: ${{ secrets.CF_ACCESS_SERVICE_TOKEN_ID }}
+          CF_SERVICE_TOKEN_SECRET: ${{ secrets.CF_ACCESS_SERVICE_TOKEN_SECRET }}
+          SSH_HOST: ${{ secrets.DEPLOY_SSH_HOSTNAME }}
+          SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
 
-          if [ "$RESPONSE_CODE" -ne 202 ] && [ "$RESPONSE_CODE" -ne 200 ]; then
-            echo "Webhook trigger failed with status $RESPONSE_CODE"
-            exit 1
-          fi
+          cat > ~/.ssh/config <<EOF
+          Host deploy-target
+            HostName $SSH_HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking no
+            ProxyCommand cloudflared access ssh --hostname %h --service-token-id $CF_SERVICE_TOKEN_ID --service-token-secret $CF_SERVICE_TOKEN_SECRET
+          EOF
+          chmod 600 ~/.ssh/config
+
+          # 명령을 안 붙이는 이유: 서버 쪽 authorized_keys가 forced command로
+          # trigger-deploy.sh만 실행하도록 고정해뒀기 때문 — 뭘 보내도 그 스크립트만 돈다.
+          ssh deploy-target
 
       # ❌ [웹훅 전송 실패 시] 서버 접속 불가 경고 전송
       # ⚠️ failure()를 더해 이전 단계가 실패 상태더라도 이 경고 단계가 강제 실행되도록 보장했습니다.
