@@ -1,0 +1,64 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 깃허브 저장소 코드 가져오기
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. Node.js 빌드 환경 셋업 및 빌드 검증
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 여기서 빌드가 실패하면 다음 단계로 가지 않고 멈춥니다.
+      - name: Build Test
+        run: npm run build
+
+      # ❌ [빌드 실패 시] 디스코드 알림 전송
+      - name: Alert Build Failure
+        if: failure()
+        run: |
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d '{"embeds": [{"title": "❌ 빌드 실패 (Build Error)", "description": "GitHub Actions 빌드 검증 중 에러가 발생했습니다. 코드를 확인하세요.", "color": 16711680}]}' \
+               "${{ secrets.DISCORD_WEBHOOK_URL }}"
+
+      # 3. [빌드 통과 시] 우리 서버로 배포 웹훅 송신 (curl)
+      # ⚠️ id: trigger_deploy를 추가하여 참조가 가능하게 수정했습니다.
+      - name: Trigger Webhook Deploy
+        id: trigger_deploy
+        run: |
+          RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST \
+            -H "X-Hub-Signature-256: ${{ secrets.WEBHOOK_SECRET_SIGNATURE }}" \
+            -H "Content-Type: application/json" \
+            -d '{"ref": "refs/heads/main"}' \
+            "https://webhook-blog.9um4.com/deploy-webhook")
+          
+          if [ "$RESPONSE_CODE" -ne 202 ] && [ "$RESPONSE_CODE" -ne 200 ]; then
+            echo "Webhook trigger failed with status $RESPONSE_CODE"
+            exit 1
+          fi
+
+      # ❌ [웹훅 전송 실패 시] 서버 접속 불가 경고 전송
+      # ⚠️ failure()를 더해 이전 단계가 실패 상태더라도 이 경고 단계가 강제 실행되도록 보장했습니다.
+      - name: Alert Server Connection Failure
+        if: failure() && steps.trigger_deploy.outcome == 'failure'
+        run: |
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d '{"embeds": [{"title": "⚠️ 서버 연결 실패", "description": "웹훅 신호를 서버로 보냈으나 연결할 수 없습니다. (서버 다운 혹은 502 에러)", "color": 16753920}]}' \
+               "${{ secrets.DISCORD_WEBHOOK_URL }}"
