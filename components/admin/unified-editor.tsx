@@ -221,6 +221,12 @@ export function UnifiedEditor({
     blockEl.style.display = "none";
     setSession({ kind: "block", start, end, hiddenEl: blockEl, mountEl });
     setDraft(contentMdRef.current.split("\n").slice(start - 1, end).join("\n"));
+
+    // 위젯이 숨겨져 전체 높이가 소멸할 때 화면 스크롤이 튕기더라도,
+    // 에디터가 화면 중앙에 오도록 즉시 강제 포커싱 스크롤을 수행합니다.
+    setTimeout(() => {
+      mountEl.scrollIntoView({ block: "center", behavior: "instant" });
+    }, 0);
   }, [restoreDom]);
 
   const openAppend = useCallback(() => {
@@ -277,7 +283,7 @@ export function UnifiedEditor({
       <div
         ref={bodyRef}
         onClickCapture={onBodyClickCapture}
-        className="post-body prose prose-neutral dark:prose-invert max-w-none [&_[data-sl]]:cursor-pointer [&_[data-sl]:hover]:bg-accent/30 [&_[data-sl]]:rounded-sm"
+        className="post-body prose prose-neutral dark:prose-invert max-w-none [&_[data-sl]]:cursor-pointer [&_[data-sl]:hover]:bg-accent/30 [&_[data-sl]]:rounded-sm [&_iframe]:pointer-events-none [&_video]:pointer-events-none"
       >
         {bodyParts.length > 0 ? (
           <BodyParts parts={bodyParts} withSourceAttrs />
