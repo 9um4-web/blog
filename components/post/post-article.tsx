@@ -77,4 +77,4 @@ export async function PostArticle({ post }: { post: typeof posts.$inferSelect })
       />
     </article>
   );
-}
+}w
