@@ -11,8 +11,16 @@
 
 set -euo pipefail
 
+# 호출부에서 "...\n..."처럼 큰따옴표 문자열에 \n을 그대로 적어도 되게 해주는 헬퍼.
+# bash의 일반 큰따옴표 문자열은 \n을 개행으로 해석하지 않고 backslash+n 두 글자
+# 그대로 두기 때문에, 여기서 실제 개행 문자로 한 번에 치환한다.
+_expand_newlines() {
+  printf '%b' "$1"
+}
+
 discord_embed() {
-  local title="$1" desc="$2" color="$3"
+  local title="$1" desc desc_raw="$2" color="$3"
+  desc="$(_expand_newlines "$desc_raw")"
   local payload
   payload=$(jq -n --arg title "$title" --arg desc "$desc" --argjson color "$color" \
     '{embeds: [{title: $title, description: $desc, color: $color}]}')
@@ -27,7 +35,8 @@ discord_file() {
 }
 
 telegram_text() {
-  local text="$1" parse_mode="${2:-Markdown}"
+  local text text_raw="$1" parse_mode="${2:-Markdown}"
+  text="$(_expand_newlines "$text_raw")"
   local payload
   payload=$(jq -n --arg chat_id "$TELEGRAM_CHAT_ID" --arg text "$text" --arg parse_mode "$parse_mode" \
     '{chat_id: $chat_id, text: $text, parse_mode: $parse_mode}')

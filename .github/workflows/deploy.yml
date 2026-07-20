@@ -23,12 +23,20 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # 커밋 메시지는 외부(사용자) 입력이라 run: 스크립트 문자열에 ${{ }}로 직접 넣으면
+          # 스크립트 인젝션 위험이 있다 — env로 넘겨서 셸이 값 그대로(코드로 안 해석) 쓰게 한다.
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           source .github/scripts/notify.sh
+
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          COMMIT_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+          COMMIT_MSG_LINE="$(head -n1 <<< "$COMMIT_MESSAGE")"
+
           discord_embed "🚀 빌드 및 배포 시작 (Build & Deploy Started)" \
-            "GitHub Actions에서 블로그 빌드 검증 및 배포 과정을 시작합니다.\n- Commit: \`${{ github.sha }}\`" \
+            "GitHub Actions에서 블로그 빌드 검증 및 배포 과정을 시작합니다.\n\nCommit: [\`${SHORT_SHA}\`](${COMMIT_URL}) - ${COMMIT_MSG_LINE}" \
             3447003
-          telegram_text "🚀 *빌드 및 배포 시작 (Build & Deploy Started)*\n\nGitHub Actions에서 블로그 빌드 검증 및 배포 과정을 시작합니다.\n- Commit: \`${{ github.sha }}\`"
+          telegram_text "🚀 *빌드 및 배포 시작 (Build & Deploy Started)*\n\nGitHub Actions에서 블로그 빌드 검증 및 배포 과정을 시작합니다.\n\nCommit: [\`${SHORT_SHA}\`](${COMMIT_URL}) - ${COMMIT_MSG_LINE}"
 
       # 2. Node.js 빌드 환경 셋업 및 빌드 검증
       - name: Setup Node.js
