@@ -62,13 +62,13 @@ const CONTAINER_DIRECTIVES: SuggestionOption[] = [
 const LEAF_DIRECTIVES: SuggestionOption[] = [
   { key: "post", label: "::post", sub: "글 카드 임베드", value: "::post{slug=}", moveCursorOffset: 13 },
   { key: "series", label: "::series", sub: "시리즈 카드 임베드", value: "::series{id=}", moveCursorOffset: 13 },
-  { key: "youtube", label: "::youtube", sub: "유튜브 영상 임베드", value: "::youtube[]", moveCursorOffset: 11 },
-  { key: "x", label: "::x", sub: "X (Twitter) 게시물 임베드", value: "::x{url=}", moveCursorOffset: 9 },
-  { key: "soundcloud", label: "::soundcloud", sub: "SoundCloud 트랙/재생목록 임베드", value: "::soundcloud{url=}", moveCursorOffset: 18 },
-  { key: "instagram", label: "::instagram", sub: "Instagram 게시물 임베드", value: "::instagram{url=}", moveCursorOffset: 17 },
-  { key: "pinterest", label: "::pinterest", sub: "Pinterest 핀 임베드", value: "::pinterest{url=}", moveCursorOffset: 17 },
-  { key: "bluesky", label: "::bluesky", sub: "Bluesky 게시물 임베드", value: "::bluesky{url=}", moveCursorOffset: 15 },
-  { key: "video", label: "::video", sub: "동영상 파일 임베드", value: "::video{url=}", moveCursorOffset: 13 },
+  { key: "youtube", label: "::youtube", sub: "유튜브 영상 임베드", value: "::youtube[]", moveCursorOffset: 10 },
+  { key: "x", label: "::x", sub: "X (Twitter) 게시물 임베드", value: "::x[]", moveCursorOffset: 4 },
+  { key: "soundcloud", label: "::soundcloud", sub: "SoundCloud 트랙/재생목록 임베드", value: "::soundcloud[]", moveCursorOffset: 13 },
+  { key: "instagram", label: "::instagram", sub: "Instagram 게시물 임베드", value: "::instagram[]", moveCursorOffset: 12 },
+  { key: "pinterest", label: "::pinterest", sub: "Pinterest 핀 임베드", value: "::pinterest[]", moveCursorOffset: 12 },
+  { key: "bluesky", label: "::bluesky", sub: "Bluesky 게시물 임베드", value: "::bluesky[]", moveCursorOffset: 10 },
+  { key: "video", label: "::video", sub: "동영상 파일 임베드", value: "::video[]", moveCursorOffset: 8 },
 ];
 
 const TEXT_DIRECTIVES: SuggestionOption[] = [

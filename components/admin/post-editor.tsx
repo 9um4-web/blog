@@ -326,24 +326,7 @@ export function PostEditor({
   );
 
 
-  // 에디터↔프리뷰 비례 스크롤 동기화. scrollTop 대입이 상대 패널의 scroll
-  // 이벤트를 다시 발생시키므로, 값이 실제로 바뀔 때만 echo 플래그를 세워
-  // 되돌아온 이벤트 1회를 삼킨다.
-  const previewPaneRef = useRef<HTMLDivElement | null>(null);
-  const scrollEcho = useRef(false);
-  const syncScroll = (from: HTMLElement, to: HTMLElement) => {
-    if (scrollEcho.current) {
-      scrollEcho.current = false;
-      return;
-    }
-    const fromMax = from.scrollHeight - from.clientHeight;
-    const ratio = fromMax > 0 ? from.scrollTop / fromMax : 0;
-    const next = ratio * (to.scrollHeight - to.clientHeight);
-    if (Math.abs(to.scrollTop - next) > 1) {
-      scrollEcho.current = true;
-      to.scrollTop = next;
-    }
-  };
+
 
   return (
     <div className="space-y-6">
@@ -448,24 +431,16 @@ export function PostEditor({
               posts={allPosts}
               series={seriesList}
               images={images}
-              // 분할: 고정 높이 + 내부 스크롤(스크롤 동기화 대상)
+              // 분할: 고정 높이 + 내부 스크롤
               // 소스: 기존처럼 내용 따라 자라는 textarea
               className={
                 mode === "split"
                   ? `${PANE_HEIGHT_CLASS} resize-none overflow-auto font-mono text-sm`
                   : "min-h-[24rem] font-mono text-sm"
               }
-              onScroll={(e) => {
-                if (previewPaneRef.current) syncScroll(e.currentTarget, previewPaneRef.current);
-              }}
             />
             {mode === "split" && (
               <div
-                ref={previewPaneRef}
-                onScroll={(e) => {
-                  const editor = document.getElementById("content");
-                  if (editor) syncScroll(e.currentTarget, editor);
-                }}
                 className={`${PANE_HEIGHT_CLASS} overflow-auto rounded-md border p-4`}
               >
                 <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
