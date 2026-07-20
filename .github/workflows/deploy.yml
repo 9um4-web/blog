@@ -14,6 +14,21 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # 🚀 [시작 시] 빌드 및 배포 프로세스 시작 알림 전송 (Discord & Telegram)
+      - name: Alert Build & Deploy Start
+        run: |
+          # 1. Discord 알림
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d '{"embeds": [{"title": "🚀 빌드 및 배포 시작 (Build & Deploy Started)", "description": "GitHub Actions에서 블로그 빌드 검증 및 배포 과정을 시작합니다.\n- Commit: `${{ github.sha }}`", "color": 3447003}]}' \
+               "${{ secrets.DISCORD_WEBHOOK_URL }}"
+          
+          # 2. Telegram 알림
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d '{"chat_id": "${{ secrets.TELEGRAM_CHAT_ID }}", "text": "🚀 *빌드 및 배포 시작 (Build & Deploy Started)*\n\nGitHub Actions에서 블로그 빌드 검증 및 배포 과정을 시작합니다.\n- Commit: `${{ github.sha }}`", "parse_mode": "Markdown"}' \
+               "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage"
+
       # 2. Node.js 빌드 환경 셋업 및 빌드 검증
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -27,14 +42,21 @@ jobs:
       - name: Build Test
         run: npm run build
 
-      # ❌ [빌드 실패 시] 디스코드 알림 전송
+      # ❌ [빌드 실패 시] 디스코드 & 텔레그램 알림 전송
       - name: Alert Build Failure
         if: failure()
         run: |
+          # 1. Discord 알림
           curl -H "Content-Type: application/json" \
                -X POST \
                -d '{"embeds": [{"title": "❌ 빌드 실패 (Build Error)", "description": "GitHub Actions 빌드 검증 중 에러가 발생했습니다. 코드를 확인하세요.", "color": 16711680}]}' \
                "${{ secrets.DISCORD_WEBHOOK_URL }}"
+
+          # 2. Telegram 알림
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d '{"chat_id": "${{ secrets.TELEGRAM_CHAT_ID }}", "text": "❌ *빌드 실패 (Build Error)*\n\nGitHub Actions 빌드 검증 중 에러가 발생했습니다. 코드를 확인하세요.", "parse_mode": "Markdown"}' \
+               "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage"
 
       # 3. [빌드 통과 시] 우리 서버로 배포 웹훅 송신 (curl)
       - name: Trigger Webhook Deploy
@@ -62,7 +84,14 @@ jobs:
       - name: Alert Server Connection Failure
         if: failure() && steps.trigger_deploy.outcome == 'failure'
         run: |
+          # 1. Discord 알림
           curl -H "Content-Type: application/json" \
                -X POST \
                -d '{"embeds": [{"title": "⚠️ 서버 연결 실패", "description": "웹훅 신호를 서버로 보냈으나 연결할 수 없습니다. (서버 다운 혹은 502 에러)", "color": 16753920}]}' \
                "${{ secrets.DISCORD_WEBHOOK_URL }}"
+
+          # 2. Telegram 알림
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d '{"chat_id": "${{ secrets.TELEGRAM_CHAT_ID }}", "text": "⚠️ *서버 연결 실패*\n\n웹훅 신호를 서버로 보냈으나 연결할 수 없습니다. (서버 다운 혹은 502 에러)", "parse_mode": "Markdown"}' \
+               "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage"
