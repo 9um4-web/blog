@@ -93,7 +93,7 @@ jobs:
       # GHCR public 전환을 전제로 두는 안전장치라 매 빌드마다 자동 실행한다.
       # exit-code는 우선 0(경고만)으로 시작 — 오탐 없이 안정화되면 1로 올려서 실패 처리할 것.
       - name: Scan blog-app image (secrets & vulnerabilities)
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ghcr.io/9um4-web/blog-app:${{ github.sha }}
           scanners: "vuln,secret"
@@ -118,7 +118,7 @@ jobs:
 
       # 🔍 blog-migrate 이미지도 동일하게 검사 (build 스테이지라 소스/의존성 전체를 포함하므로 더 중요)
       - name: Scan blog-migrate image (secrets & vulnerabilities)
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ghcr.io/9um4-web/blog-migrate:${{ github.sha }}
           scanners: "vuln,secret"
