@@ -50,6 +50,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 h=none 또는 해당 조상 없음 → data-nofold로 접기 면제)
 
 **컨테이너 디렉티브(`:::`)는 닫는 `:::`가 꼭 있어야 함** — 안 닫으면 문서 끝까지 그 블록에 먹힌다. `::indent{n=0}`처럼 "0으로 리셋" 식으로는 못 끝냄, 반드시 여는 것과 짝인 `:::`로 닫아야 함. 에디터 안내 문구에도 명시돼 있음.
+같은 길이 `:::`끼리 중첩하면 micromark는 닫는 펜스로 바깥까지 닫아버리므로, `lib/domain/directive-nesting.ts`의 `normalizeContainerFences()`가 파싱 직전(render.ts·markdown.ts 양쪽)에 스택으로 짝지어 바깥 펜스 콜론 수를 늘린다(줄 수 불변 → data-sl 매핑 유지).
 
 ## 알려진 정리 대상 (다음에 손댈 때 참고, 우선순위 낮음)
 

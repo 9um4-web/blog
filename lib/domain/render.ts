@@ -11,6 +11,7 @@ import { unified } from "unified";
 import { visit } from "unist-util-visit";
 import type { Element, ElementContent, Root, RootContent } from "hast";
 import type { Root as MdastRoot } from "mdast";
+import { normalizeContainerFences } from "./directive-nesting";
 import { flattenTransparentContainers } from "./markdown";
 
 const HEADING_TAGS = new Set(["h2", "h3", "h4", "h5", "h6"]);
@@ -959,6 +960,6 @@ export async function renderPostHtml(contentMd: string, withSourceAttrs = false)
     .use(rehypeSectionWrap)
     .use(rehypeShikiHighlight)
     .use(rehypeStringify)
-    .process(contentMd);
+    .process(normalizeContainerFences(contentMd));
   return String(file);
 }

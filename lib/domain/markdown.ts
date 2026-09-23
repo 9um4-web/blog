@@ -6,6 +6,7 @@ import remarkMath from "remark-math";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 import type { Root } from "mdast";
+import { normalizeContainerFences } from "./directive-nesting";
 
 /** heading_tree 노드 구조 (스펙 2장). 본문 최상위는 노드 배열(forest). */
 export interface HeadingNode {
@@ -18,7 +19,7 @@ export interface HeadingNode {
 export function parseMarkdown(contentMd: string): Root {
   // directive/math를 함께 파싱해 ::: 나 $$ 원문이 문단 텍스트로 새지 않게 한다
   const processor = unified().use(remarkParse).use(remarkGfm).use(remarkDirective).use(remarkMath);
-  return processor.runSync(processor.parse(contentMd)) as Root;
+  return processor.runSync(processor.parse(normalizeContainerFences(contentMd))) as Root;
 }
 
 /**
