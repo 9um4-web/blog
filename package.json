@@ -13,7 +13,12 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@9um4/editor-core": "file:vendor/9um4-editor-core-0.0.0.tgz",
+    "@9um4/editor-markdown": "file:vendor/9um4-editor-markdown-0.0.0.tgz",
+    "@9um4/editor-react": "file:vendor/9um4-editor-react-0.0.0.tgz",
+    "@9um4/editor-schema": "file:vendor/9um4-editor-schema-0.0.0.tgz",
     "@giscus/react": "^3.1.0",
+    "@tiptap/react": "^3.32.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -61,5 +66,11 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "@9um4/editor-schema": "file:vendor/9um4-editor-schema-0.0.0.tgz",
+    "@9um4/editor-markdown": "file:vendor/9um4-editor-markdown-0.0.0.tgz",
+    "@9um4/editor-core": "file:vendor/9um4-editor-core-0.0.0.tgz",
+    "@9um4/editor-react": "file:vendor/9um4-editor-react-0.0.0.tgz"
   }
 }

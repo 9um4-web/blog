@@ -1,7 +1,9 @@
 # ---------- deps ----------
 FROM node:24-alpine AS deps
 WORKDIR /app
+# @9um4/editor-* 패키지(관리자 시각 편집기)는 레지스트리에 올라가기 전까지 vendor/의 tarball로 설치한다
 COPY package.json package-lock.json ./
+COPY vendor ./vendor
 RUN npm ci
 
 # ---------- build ----------

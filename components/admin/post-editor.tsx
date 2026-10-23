@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -12,6 +13,7 @@ import { DirectiveAutocompleteTextarea } from "@/components/admin/directive-auto
 import { ImageUploader } from "@/components/admin/image-uploader";
 import { PostPreview } from "@/components/admin/post-preview";
 import { UnifiedEditor } from "@/components/admin/unified-editor";
+import type { WysiwygEditorHandle } from "@/components/admin/wysiwyg-editor";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -25,7 +27,14 @@ const MODE_LABELS: Record<EditorMode, string> = {
   unified: "통합",
   split: "분할",
   source: "소스",
+  wysiwyg: "시각",
 };
+
+// 시각(WYSIWYG) 모드는 에디터 번들(TipTap·KaTeX·mermaid 등)이 커서 그 모드를 열 때만 불러온다.
+const WysiwygEditor = dynamic(() => import("@/components/admin/wysiwyg-editor").then((m) => m.WysiwygEditor), {
+  ssr: false,
+  loading: () => <p className="text-sm text-muted-foreground">에디터를 불러오는 중…</p>,
+});
 
 function persistEditorMode(mode: EditorMode) {
   document.cookie = `${EDITOR_MODE_COOKIE}=${mode}; path=/admin; max-age=31536000; samesite=lax`;
@@ -168,6 +177,7 @@ export function PostEditor({
   // contentMd를 deps에 넣으면 타이핑마다 effect가 돌므로 ref로 우회한다.
   // (ref 쓰기는 렌더 중이 아니라 이벤트/초기화 시점에만)
   const contentRef = useRef(post?.contentMd ?? "");
+  const wysiwygRef = useRef<WysiwygEditorHandle>(null);
 
   // mode가 바뀔 때(마운트 포함) 프리뷰 렌더 예약
   useEffect(() => {
@@ -394,6 +404,10 @@ export function PostEditor({
             </div>
             <ImageUploader
               onUploaded={(markdown) => {
+                if (mode === "wysiwyg") {
+                  wysiwygRef.current?.insertMarkdown(markdown);
+                  return;
+                }
                 if (mode === "unified") {
                   // 통합 모드의 #content는 열려 있는 블록의 draft라 커서 삽입이
                   // 본문 좌표와 어긋난다 — 항상 문서 끝에 덧붙인다
@@ -411,7 +425,10 @@ export function PostEditor({
           </div>
         </div>
 
-        {mode === "unified" ? (
+        {mode === "wysiwyg" ? (
+          // 모드를 바꿔 들어올 때마다 현재 본문을 새로 읽는다(그 사이 다른 모드에서 고친 내용 반영). 열기만 해서는 본문이 바뀌지 않는다.
+          <WysiwygEditor ref={wysiwygRef} initialMarkdown={contentMd} onContentChange={onContentChange} />
+        ) : mode === "unified" ? (
           <UnifiedEditor
             contentMd={contentMd}
             bodyParts={previewBodyParts}

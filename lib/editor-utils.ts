@@ -1,7 +1,7 @@
 export const EDITOR_MODE_COOKIE = "post_editor_mode";
 
-export type EditorMode = "unified" | "split" | "source";
+export type EditorMode = "unified" | "split" | "source" | "wysiwyg";
 
 export function parseEditorMode(value: string | undefined): EditorMode {
-  return value === "split" || value === "source" ? value : "unified";
+  return value === "split" || value === "source" || value === "wysiwyg" ? value : "unified";
 }
