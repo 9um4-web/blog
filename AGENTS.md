@@ -55,7 +55,7 @@ h=none 또는 해당 조상 없음 → data-nofold로 접기 면제)
 ## 시각(WYSIWYG) 편집 모드 (`components/admin/wysiwyg-editor.tsx`)
 
 - 관리자 본문 편집기의 네 번째 모드("시각"). 기본 모드는 그대로 "통합"이고, 시각 모드는 쿠키(`post_editor_mode=wysiwyg`)로 고른 사람만 쓴다. 원본은 항상 마크다운(`contentMd`)이다.
-- 에디터는 `@9um4/editor-{schema,markdown,core,react}` 패키지(별도 저장소 `mine`의 `packages/`)이고, 레지스트리 배포 전까지 `vendor/*.tgz`로 설치한다(`package.json`의 `overrides`가 패키지끼리의 의존도 같은 tarball로 맞춘다). **Dockerfile의 deps 단계가 `vendor/`를 복사해야 `npm ci`가 된다.** 패키지를 새로 빌드하면 tarball을 바꾸고 `package-lock.json`의 해당 `integrity`를 지운 뒤 `npm install`.
+- 에디터는 `@9um4-utils/editor-{schema,markdown,core,react}` 패키지(별도 저장소 `mine`의 `packages/`)이고, 레지스트리 배포 전까지 `vendor/*.tgz`로 설치한다(`package.json`의 `overrides`가 패키지끼리의 의존도 같은 tarball로 맞춘다). **Dockerfile의 deps 단계가 `vendor/`를 복사해야 `npm ci`가 된다.** 패키지를 새로 빌드하면 tarball을 바꾸고 `package-lock.json`의 해당 `integrity`를 지운 뒤 `npm install`.
 - 열기만 해서는 본문이 바뀌지 않는다: 문서를 연 직후의 마크다운과 같으면 내보내지 않는다. 고치면 블로그 방언(`dialect: "blog"`)으로 정규화되어 나간다(빈 줄 간격·`~x~`→`~~x~~` 등 렌더가 같은 정규화). 에디터가 구조를 모르는 문법(`::youtube`·`::post`·`:postlink`·이미지·HTML·열 정렬 표·한 줄 `$$`)은 회색 상자/칸의 **원문 그대로** 보존된다.
 - 에디터의 이미지·토글 노드는 쓰지 않는다(`transform`으로 뺌). 이미지는 업로드 버튼의 마크다운(`![](/images/…)`)이 원문 상자로 들어가고 그림으로 보인다. 크기 조절(드래그)은 통합·분할 모드에서만 된다.
 - 에디터 스타일은 밝은 배경 기준이라 어두운 테마에서도 흰 종이 위에 둔다(`not-prose`). 에디터 번들은 `next/dynamic`으로 시각 모드를 열 때만 불러온다.

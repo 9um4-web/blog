@@ -1,13 +1,13 @@
 "use client";
 
 // 관리자 본문 편집기의 WYSIWYG 모드. 원본은 항상 마크다운(`contentMd`)이고, 이 컴포넌트는 그것을 열어 고치고 마크다운으로 돌려준다.
-// 에디터는 @9um4/editor-* 패키지(vendor/)다. 블로그 문법(`:::note` 등 remark-directive)은 패키지의 `dialect: "blog"`가 맡고,
+// 에디터는 @9um4-utils/editor-* 패키지(vendor/)다. 블로그 문법(`:::note` 등 remark-directive)은 패키지의 `dialect: "blog"`가 맡고,
 // 에디터가 구조를 모르는 문법(::youtube, ::post, :postlink 등)은 원문 그대로 보존된다 — 열기만 하고 고치지 않으면 본문은 바뀌지 않는다.
-import "@9um4/editor-react/styles.css";
+import "@9um4-utils/editor-react/styles.css";
 
-import { memoryPorts, type SlashItem } from "@9um4/editor-core";
-import { createReactExtensions, EditorPortsProvider, FootnoteEditorHost, MathEditorHost, TableToolbar } from "@9um4/editor-react";
-import { docToMarkdown, markdownToDoc, type ImportContext } from "@9um4/editor-markdown";
+import { memoryPorts, type SlashItem } from "@9um4-utils/editor-core";
+import { createReactExtensions, EditorPortsProvider, FootnoteEditorHost, MathEditorHost, TableToolbar } from "@9um4-utils/editor-react";
+import { docToMarkdown, markdownToDoc, type ImportContext } from "@9um4-utils/editor-markdown";
 import { type Editor, EditorContent, useEditor } from "@tiptap/react";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from "react";
 

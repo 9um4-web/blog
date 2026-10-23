@@ -13,10 +13,10 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@9um4/editor-core": "file:vendor/9um4-editor-core-0.0.0.tgz",
-    "@9um4/editor-markdown": "file:vendor/9um4-editor-markdown-0.0.0.tgz",
-    "@9um4/editor-react": "file:vendor/9um4-editor-react-0.0.0.tgz",
-    "@9um4/editor-schema": "file:vendor/9um4-editor-schema-0.0.0.tgz",
+    "@9um4-utils/editor-core": "file:vendor/9um4-utils-editor-core-0.0.0.tgz",
+    "@9um4-utils/editor-markdown": "file:vendor/9um4-utils-editor-markdown-0.0.0.tgz",
+    "@9um4-utils/editor-react": "file:vendor/9um4-utils-editor-react-0.0.0.tgz",
+    "@9um4-utils/editor-schema": "file:vendor/9um4-utils-editor-schema-0.0.0.tgz",
     "@giscus/react": "^3.1.0",
     "@tiptap/react": "^3.32.0",
     "bcryptjs": "^3.0.3",
@@ -68,9 +68,9 @@
     "vitest": "^4.1.10"
   },
   "overrides": {
-    "@9um4/editor-schema": "file:vendor/9um4-editor-schema-0.0.0.tgz",
-    "@9um4/editor-markdown": "file:vendor/9um4-editor-markdown-0.0.0.tgz",
-    "@9um4/editor-core": "file:vendor/9um4-editor-core-0.0.0.tgz",
-    "@9um4/editor-react": "file:vendor/9um4-editor-react-0.0.0.tgz"
+    "@9um4-utils/editor-schema": "file:vendor/9um4-utils-editor-schema-0.0.0.tgz",
+    "@9um4-utils/editor-markdown": "file:vendor/9um4-utils-editor-markdown-0.0.0.tgz",
+    "@9um4-utils/editor-core": "file:vendor/9um4-utils-editor-core-0.0.0.tgz",
+    "@9um4-utils/editor-react": "file:vendor/9um4-utils-editor-react-0.0.0.tgz"
   }
 }
