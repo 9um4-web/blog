@@ -74,6 +74,8 @@ export const WysiwygEditor = forwardRef<WysiwygEditorHandle, WysiwygEditorProps>
       createReactExtensions(null, {
         ports,
         raw: true,
+        // 열자마자 문서 정리를 끝낸다(원문 상자·인라인 원자 노드를 처음 누를 때의 선택 오류 방지). 변경 여부는 내보낸 마크다운을 기준과 비교해 가린다.
+        settle: true,
         markdown: IMPORT_CONTEXT,
         // 이미지는 블로그 업로드(`![](/img/…)`)로만 넣고 에디터의 이미지 노드(앱 저장소 해시)는 쓰지 않는다. 토글도 블로그 문법에 없다.
         transform: (list) => list.filter((extension) => extension.name !== "image" && extension.name !== "toggle"),
