@@ -150,3 +150,18 @@ export function hydratePostEmbedParts(parts: RawEmbedPart[], data: PostEmbedData
       : { kind: "error", message: `[series: 찾을 수 없는 시리즈 (${part.seriesId})]`, sourceLines };
   });
 }
+
+export type EmbedLine = { kind: "post"; slug: string } | { kind: "series"; id: number };
+
+/** 편집기의 원문 상자 한 줄(`::post{slug=…}` / `::series{id=…}`)을 읽는다. 임베드가 아니거나 값이 잘못됐으면 null. */
+export function parseEmbedLine(text: string): EmbedLine | null {
+  const match = /^\s*::(post|series)\{([^}\n]*)\}\s*$/.exec(text);
+  if (!match) return null;
+  const body = match[2] ?? "";
+  if (match[1] === "post") {
+    const slug = normalizePostSlug(/(?:^|[\s,])slug=("?)([^\s,"}]*)\1/.exec(body)?.[2] ?? null);
+    return slug ? { kind: "post", slug } : null;
+  }
+  const id = normalizeSeriesId(/(?:^|[\s,])id=("?)([^\s,"}]*)\1/.exec(body)?.[2] ?? null);
+  return id !== null ? { kind: "series", id } : null;
+}

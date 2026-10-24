@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   extractPostEmbedRequests,
   hydratePostEmbedParts,
+  parseEmbedLine,
   splitPostEmbedParts,
 } from "./post-embeds";
 
@@ -64,5 +65,21 @@ describe("post embeds", () => {
     });
     expect(hydrated[0]).toMatchObject({ kind: "error", message: expect.stringContaining("찾을 수 없는 포스트") });
     expect(hydrated[1]).toMatchObject({ kind: "error", message: expect.stringContaining("찾을 수 없는 시리즈") });
+  });
+});
+
+describe("parseEmbedLine", () => {
+  it("::post / ::series 한 줄을 읽는다", () => {
+    expect(parseEmbedLine("::post{slug=my-post}")).toEqual({ kind: "post", slug: "my-post" });
+    expect(parseEmbedLine('  ::post{slug="My-Post"}  ')).toEqual({ kind: "post", slug: "my-post" });
+    expect(parseEmbedLine("::series{id=3}")).toEqual({ kind: "series", id: 3 });
+  });
+
+  it("값이 비었거나 잘못됐거나 다른 문법이면 null", () => {
+    expect(parseEmbedLine("::post{slug=}")).toBeNull();
+    expect(parseEmbedLine("::post{slug=a!b}")).toBeNull();
+    expect(parseEmbedLine("::series{id=0}")).toBeNull();
+    expect(parseEmbedLine("::youtube{id=abc}")).toBeNull();
+    expect(parseEmbedLine("앞 ::post{slug=x}")).toBeNull();
   });
 });

@@ -17,6 +17,9 @@ import {
   splitPostEmbedParts,
   extractPostEmbedRequests,
   type HydratedPostBodyPart,
+  type PostEmbedData,
+  type PostEmbedPostCard,
+  type PostEmbedSeriesCard,
 } from "@/lib/post-embeds";
 import {
   resolveSlugCollision,
@@ -25,6 +28,46 @@ import {
   validateSlug,
   type SlugValidation,
 } from "@/lib/domain/slug";
+
+/** 임베드 요청(slug/id)을 DB에서 읽어 카드 데이터로 만든다. 미리보기와 시각 편집기의 카드 미리보기가 함께 쓴다. */
+async function loadPostEmbedData(requests: { postSlugs: string[]; seriesIds: number[] }): Promise<PostEmbedData> {
+  const [postCards, seriesRows, seriesPostsRows] = await Promise.all([
+    listPublicPostCardsBySlugs(requests.postSlugs),
+    listSeriesByIds(requests.seriesIds),
+    listSeriesPostsBySeriesIds(requests.seriesIds, true),
+  ]);
+  const seriesPostsMap = new Map<number, { postId: number; title: string; slug: string | null }[]>();
+  for (const row of seriesPostsRows) {
+    const list = seriesPostsMap.get(row.seriesId);
+    const item = { postId: row.postId, title: row.title, slug: row.slug };
+    if (list) list.push(item);
+    else seriesPostsMap.set(row.seriesId, [item]);
+  }
+  return {
+    postCards,
+    seriesCards: seriesRows.map((series) => ({
+      id: series.id,
+      slug: series.slug,
+      name: series.name,
+      description: series.description,
+      isCompleted: series.isCompleted,
+      posts: seriesPostsMap.get(series.id) ?? [],
+    })),
+  };
+}
+
+/** 시각 편집기의 `::post{slug=…}` / `::series{id=…}` 카드 미리보기용. 못 찾으면 null. */
+export async function loadEmbedCard(
+  input: { kind: "post"; slug: string } | { kind: "series"; id: number },
+): Promise<PostEmbedPostCard | PostEmbedSeriesCard | null> {
+  await requireAdmin();
+  if (input.kind === "post") {
+    const data = await loadPostEmbedData({ postSlugs: [input.slug], seriesIds: [] });
+    return data.postCards[0] ?? null;
+  }
+  const data = await loadPostEmbedData({ postSlugs: [], seriesIds: [input.id] });
+  return data.seriesCards[0] ?? null;
+}
 
 /**
  * 에디터 실시간 미리보기용. 게시 뷰와 동일한 서버 파이프라인을 재사용해
@@ -38,30 +81,7 @@ export async function renderPostPreview(
   const html = await renderPostHtml(contentMd, true);
   const embedParts = splitPostEmbedParts(html);
   const requests = extractPostEmbedRequests(embedParts);
-  const [postCards, seriesRows, seriesPostsRows] = await Promise.all([
-    listPublicPostCardsBySlugs(requests.postSlugs),
-    listSeriesByIds(requests.seriesIds),
-    listSeriesPostsBySeriesIds(requests.seriesIds, true),
-  ]);
-  const seriesPostsMap = new Map<number, { postId: number; title: string; slug: string | null }[]>();
-  for (const row of seriesPostsRows) {
-    const list = seriesPostsMap.get(row.seriesId);
-    const item = { postId: row.postId, title: row.title, slug: row.slug };
-    if (list) list.push(item);
-    else seriesPostsMap.set(row.seriesId, [item]);
-  }
-
-  const bodyParts = hydratePostEmbedParts(embedParts, {
-    postCards,
-    seriesCards: seriesRows.map((series) => ({
-      id: series.id,
-      slug: series.slug,
-      name: series.name,
-      description: series.description,
-      isCompleted: series.isCompleted,
-      posts: seriesPostsMap.get(series.id) ?? [],
-    })),
-  });
+  const bodyParts = hydratePostEmbedParts(embedParts, await loadPostEmbedData(requests));
   return { html, headingTree: parsed.ok ? parsed.headingTree : [], bodyParts };
 }
 
