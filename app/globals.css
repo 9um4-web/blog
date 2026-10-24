@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @plugin "@tailwindcss/typography";
+@import "./post-content.css";
 
 /* ---------- 사이트 글꼴 (설정의 site_font → html[data-font]) ---------- */
 

@@ -1,0 +1,38 @@
+/* 글 본문의 모양 규칙 — 공개 페이지(.post-body)와 관리자 시각 편집기(.md-editor)가 함께 쓴다.
+   편집기 패키지 스타일은 h1~h3만 꾸며서 h4~h6이 본문과 구분되지 않았다. 여기서 두 곳을 같은 값으로 맞춘다. */
+
+:is(.post-body, .md-editor) {
+  --post-h4-size: 1.0625em;
+  --post-h5-size: 1em;
+  --post-h6-size: 0.9375em;
+}
+
+:is(.post-body, .md-editor) :is(h4, h5, h6) {
+  font-weight: 600;
+  line-height: 1.5;
+  margin-top: 1.4em;
+  margin-bottom: 0.5em;
+}
+
+:is(.post-body, .md-editor) h4 {
+  font-size: var(--post-h4-size);
+}
+
+:is(.post-body, .md-editor) h5 {
+  font-size: var(--post-h5-size);
+}
+
+:is(.post-body, .md-editor) h6 {
+  font-size: var(--post-h6-size);
+  color: var(--muted-foreground, #737373);
+}
+
+/* 편집기의 컨테이너 디렉티브(directive-decoration.ts가 클래스를 붙인다) */
+.md-editor .md-directive.md-directive-indent {
+  border-left-color: #a3a3a3;
+}
+
+.md-editor .md-directive.md-directive-fold {
+  border-left-style: dashed;
+  border-left-color: #60a5fa;
+}

@@ -11,6 +11,8 @@ import { docToMarkdown, markdownToDoc, type ImportContext } from "@9um4-utils/ed
 import { type Editor, EditorContent, useEditor } from "@tiptap/react";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from "react";
 
+import { DirectiveDecoration } from "./directive-decoration";
+
 export interface WysiwygEditorHandle {
   /** 커서 위치에 마크다운 조각을 끼운다(이미지 업로드 결과 등). */
   insertMarkdown(markdown: string): void;
@@ -78,7 +80,7 @@ export const WysiwygEditor = forwardRef<WysiwygEditorHandle, WysiwygEditorProps>
         settle: true,
         markdown: IMPORT_CONTEXT,
         // 이미지는 블로그 업로드(`![](/img/…)`)로만 넣고 에디터의 이미지 노드(앱 저장소 해시)는 쓰지 않는다. 토글도 블로그 문법에 없다.
-        transform: (list) => list.filter((extension) => extension.name !== "image" && extension.name !== "toggle"),
+        transform: (list) => [...list.filter((extension) => extension.name !== "image" && extension.name !== "toggle"), DirectiveDecoration],
         slashItems: (core) => [...core.filter((item) => !HIDDEN_SLASH_ITEMS.has(item.id)), ...BLOG_SLASH_ITEMS],
         slashHandlers: {
           "blog-youtube": (_editor, chain) => chain.insertContent({ type: "raw", attrs: { text: "::youtube{id=}" } }).run(),
