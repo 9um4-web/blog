@@ -1,10 +1,10 @@
 # ---------- deps ----------
 FROM node:24-alpine AS deps
 WORKDIR /app
-# @9um4/editor-* 패키지(관리자 시각 편집기)는 레지스트리에 올라가기 전까지 vendor/의 tarball로 설치한다
-COPY package.json package-lock.json ./
-COPY vendor ./vendor
-RUN npm ci
+# @gogum4/editor-* 패키지(관리자 시각 편집기)는 GitHub Packages에서 받는다. 토큰은 이미지에 남지 않게 BuildKit 비밀(id=npmrc)로만 준다:
+#   docker build --secret id=npmrc,src=$HOME/.npmrc ...  (파일에 //npm.pkg.github.com/:_authToken=… 줄이 있어야 한다)
+COPY package.json package-lock.json .npmrc ./
+RUN --mount=type=secret,id=npmrc,target=/root/.npmrc npm ci
 
 # ---------- build ----------
 # 이 스테이지는 마이그레이션 실행용 이미지로도 사용된다 (docker-compose.yml의 migrate 서비스)

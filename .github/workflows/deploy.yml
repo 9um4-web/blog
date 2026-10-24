@@ -43,9 +43,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
+          registry-url: https://npm.pkg.github.com
+          scope: "@gogum4"
 
+      # 에디터 패키지(@gogum4/editor-*)는 다른 조직의 GitHub Packages라 `read:packages` 권한의 토큰(저장소 비밀 GH_PACKAGES_TOKEN)이 필요하다.
       - name: Install dependencies
         run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
 
       # 여기서 빌드가 실패하면 다음 단계로 가지 않고 멈춤
       - name: Build Test
@@ -92,6 +97,8 @@ jobs:
           context: .
           file: ./Dockerfile
           target: runner
+          secrets: |
+            npmrc=//npm.pkg.github.com/:_authToken=${{ secrets.GH_PACKAGES_TOKEN }}
           push: true
           tags: |
             ghcr.io/9um4-web/blog-app:latest
@@ -119,6 +126,8 @@ jobs:
           context: .
           file: ./Dockerfile
           target: build
+          secrets: |
+            npmrc=//npm.pkg.github.com/:_authToken=${{ secrets.GH_PACKAGES_TOKEN }}
           push: true
           tags: |
             ghcr.io/9um4-web/blog-migrate:latest
