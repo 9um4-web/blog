@@ -146,52 +146,26 @@ jobs:
           TRIVY_USERNAME: ${{ github.actor }}
           TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
 
-      # 3. [빌드 통과 시] 우리 서버로 배포 트리거 — Cloudflare Tunnel의 SSH ingress 경유.
+      # 3. [빌드 통과 시] 서버의 self-hosted 러너에 배포를 맡긴다.
       #
-      # ⚠️ Cloudflare 무료 플랜의 Bot Fight Mode는 WAF Custom Rule로 스킵이 안 되는
-      # 구조적 제약이 있어(Ruleset Engine 밖에서 동작), 공개 HTTPS 웹훅으로는 GitHub
-      # Actions의 요청이 계속 managed_challenge에 막혔다. Bot Fight Mode는 HTTP만
-      # 검사하므로, SSH(Cloudflare Tunnel 터널링)로 우회한다.
-      #
-      # 서버에 도달한 뒤 실행되는 명령은 authorized_keys의 forced command로 고정돼 있어서
-      # (~/blog-deploy/trigger-deploy.sh) 이 SSH 키가 새더라도 공격자가 임의 명령을 못 돌리고
-      # 딱 그 스크립트만 실행할 수 있다. HMAC 시크릿도 서버의 .env에서만 읽으므로 GitHub
-      # Actions 쪽엔 웹훅 시크릿을 따로 등록할 필요가 없다(SSH 키/서비스 토큰만 있으면 됨).
-      # Cloudflare/서버 쪽 설정 절차는 docs/ssh-tunnel-deploy-trigger.md 참고.
-      - name: Install cloudflared
-        run: |
-          curl -sL -o cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
-          chmod +x cloudflared
-          sudo mv cloudflared /usr/local/bin/cloudflared
-
-      - name: Trigger Deploy via SSH over Cloudflare Tunnel
+      # 이 공개 저장소의 워크플로(fork PR 포함)가 서버에서 직접 돌지 않게, 서버 러너는 별도 비공개 저장소
+      # (9um4/blog-deploy-trigger)에만 등록돼 있고 이 단계는 그 저장소에 `repository_dispatch` 이벤트만 보낸다.
+      # 이 단계는 `push: main`(저장소 소유자만 가능)에서만 도달하며, 서버에서 일어나는 일(git reset·docker compose pull/up·알림)은
+      # 서버의 ~/blog-deploy/deploy-with-notify.sh가 맡는다(그 저장소의 README 참고).
+      # 토큰(DEPLOY_TRIGGER_TOKEN)은 9um4/blog-deploy-trigger 한 곳에만 권한을 둔 fine-grained PAT(Contents: write)이다.
+      - name: Trigger deploy on self-hosted runner
         id: trigger_deploy
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-          CF_SERVICE_TOKEN_ID: ${{ secrets.CF_ACCESS_SERVICE_TOKEN_ID }}
-          CF_SERVICE_TOKEN_SECRET: ${{ secrets.CF_ACCESS_SERVICE_TOKEN_SECRET }}
-          SSH_HOST: ${{ secrets.DEPLOY_SSH_HOSTNAME }}
-          SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
+          GH_TOKEN: ${{ secrets.DEPLOY_TRIGGER_TOKEN }}
+          # 커밋 메시지는 외부 입력이라 env로 넘겨 셸이 값 그대로 쓰게 한다.
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+          gh api repos/9um4/blog-deploy-trigger/dispatches \
+            -f event_type=deploy-blog \
+            -f "client_payload[sha]=${GITHUB_SHA}" \
+            -f "client_payload[message]=$(head -n1 <<< "$COMMIT_MESSAGE")"
 
-          cat > ~/.ssh/config <<EOF
-          Host deploy-target
-            HostName $SSH_HOST
-            User $SSH_USER
-            IdentityFile ~/.ssh/deploy_key
-            StrictHostKeyChecking no
-            ProxyCommand cloudflared access ssh --hostname %h --service-token-id $CF_SERVICE_TOKEN_ID --service-token-secret $CF_SERVICE_TOKEN_SECRET
-          EOF
-          chmod 600 ~/.ssh/config
-
-          # 명령을 안 붙이는 이유: 서버 쪽 authorized_keys가 forced command로
-          # trigger-deploy.sh만 실행하도록 고정해뒀기 때문 — 뭘 보내도 그 스크립트만 돈다.
-          ssh deploy-target
-
-      # ❌ [웹훅 전송 실패 시] 서버 접속 불가 경고 전송
+      # ❌ [배포 트리거 전송 실패 시] 경고 전송
       # ⚠️ failure()를 더해 이전 단계가 실패 상태더라도 이 경고 단계가 강제 실행되도록 보장했습니다.
       - name: Alert Server Connection Failure
         if: failure() && steps.trigger_deploy.outcome == 'failure'
@@ -201,5 +175,5 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           source .github/scripts/notify.sh
-          discord_embed "⚠️ 서버 연결 실패" "웹훅 신호를 서버로 보냈으나 연결할 수 없습니다. (서버 다운 혹은 502 에러)" 16753920
-          telegram_text "⚠️ *서버 연결 실패*\n\n웹훅 신호를 서버로 보냈으나 연결할 수 없습니다. (서버 다운 혹은 502 에러)"
+          discord_embed "⚠️ 배포 트리거 실패" "빌드는 끝났지만 서버 러너에 배포 이벤트를 보내지 못했습니다. (DEPLOY_TRIGGER_TOKEN 만료·권한 확인)" 16753920
+          telegram_text "⚠️ *배포 트리거 실패*\n\n빌드는 끝났지만 서버 러너에 배포 이벤트를 보내지 못했습니다. (DEPLOY_TRIGGER_TOKEN 만료·권한 확인)"

@@ -1,3 +1,5 @@
+> **폐기됨**: 이 SSH-over-Cloudflare-Tunnel 트리거는 서버의 self-hosted 러너 + `repository_dispatch`(서버 쪽 `~/blog-deploy`, 비공개 `9um4/blog-deploy-trigger`)로 대체됐다. 서버에서 `trigger-deploy.sh`와 터널 서비스가 이미 없어져 이 방식은 동작하지 않는다. 아래는 기록이다.
+
 # 배포 트리거를 SSH-over-Cloudflare-Tunnel로 전환
 
 ## 왜 바꿨나
