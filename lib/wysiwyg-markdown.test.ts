@@ -38,6 +38,19 @@ describe("시각 편집기의 마크다운 왕복", () => {
     expect(roundTrip(once)).toBe(once);
   });
 
+  it("[[슬러그|텍스트]]는 글 링크 노드(pageLink)가 되고 같은 글자로 돌아온다", () => {
+    const md = "앞 [[old-post|옛 글]] 중간 [[bare-slug]] 뒤\n";
+    const doc = markdownToDoc(md, IMPORT_CONTEXT, "").doc;
+    expect(JSON.stringify(doc)).toContain('"type":"pageLink"');
+    expect(JSON.stringify(doc)).toContain('"pageId":"old-post"');
+    expect(exportMarkdown(doc)).toBe(md);
+  });
+
+  it("Bluesky 주소도 임베드 노드가 된다", () => {
+    const doc = markdownToDoc("![](https://bsky.app/profile/alice.bsky.social/post/3kabc123xyz)", IMPORT_CONTEXT, "").doc;
+    expect(doc.content).toMatchObject([{ type: "embed", attrs: { provider: "bluesky" } }]);
+  });
+
   it("글·시리즈 카드는 참조 노드가 되어 ![[…]]로 돌아온다", () => {
     const doc = markdownToDoc("![[hello-world]]\n\n![[series/my-series]]", IMPORT_CONTEXT, "").doc;
     expect(doc.content).toMatchObject([

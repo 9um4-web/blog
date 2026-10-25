@@ -1,16 +1,15 @@
 import { calloutMeta } from "@gogum4/editor-schema/callout";
-import { detectEmbed, normalizeEmbedSize } from "@gogum4/editor-schema/embed";
+import { detectEmbed, embedSource, normalizeEmbedSize, withBlueskyDid } from "@gogum4/editor-schema/embed";
 import { indentFromLeadingSpaces } from "@gogum4/editor-schema/indent";
 import type { Blockquote, Heading, Link, Paragraph, PhrasingContent, Root, RootContent } from "mdast";
 import { visit } from "unist-util-visit";
-import { blueskyEmbed, isBlueskyUrl } from "./bluesky";
 import { externalEmbed, isVideoFileUrl, videoFileEmbed } from "./embeds";
 import { applyHtmlWrappers, type WrapperNode } from "./html-wrappers";
 
 /**
  * Obsidian 호환 문법을 읽는 remark 플러그인 (블로그 방언 `:::`/`::` 디렉티브를 대신한다).
  *
- * - `> [!종류] 제목` 콜아웃 (종류는 자유 이름 — 렌더 결과 `div.callout.callout-종류`)
+ * - `> [!종류] 제목` 콜아웃 (종류는 자유 이름 — 렌더 결과 `div.callout.callout-종류`, `[!종류]+`/`-`는 접을 수 있는 `<details>`)
  * - `![](주소)` / `![|500x300](주소)` : YouTube·X·Instagram·Pinterest·SoundCloud 임베드(+블로그 전용 Bluesky), `.mp4` 등은 비디오
  * - `![[슬러그]]` 글 임베드, `![[series/슬러그]]` 시리즈 임베드 (카드 자리표시 — 실제 카드는 post-embeds.ts가 DB에서 채운다)
  * - `[[슬러그]]` / `[[슬러그|표시]]` 글 링크
@@ -21,7 +20,7 @@ import { applyHtmlWrappers, type WrapperNode } from "./html-wrappers";
 const SLUG_PATTERN = /^[a-z0-9-]{1,100}$/;
 const WIKI_EMBED = /^!\[\[([^\]\n|#]+)\]\]$/;
 const WIKI_LINK = /\[\[([^\]\n|#]+)(?:\|([^\]\n]*))?\]\]/g;
-const CALLOUT_HEAD = /^\[!([A-Za-z][A-Za-z0-9_-]{0,31})\][+-]?[ \t]*/;
+const CALLOUT_HEAD = /^\[!([A-Za-z][A-Za-z0-9_-]{0,31})\]([+-])?[ \t]*/;
 const EMBED_SIZE_ALT = /^\s*\|\s*(\d+)(?:x(\d+))?\s*$/;
 
 /** 예전 `:::note` 방언의 기본 제목(모양을 바꾸지 않으려 그대로 둔다). 그 밖의 종류는 @gogum4/editor-schema의 이름을 쓴다. */
@@ -56,6 +55,7 @@ function toCallout(quote: Blockquote): HNode | null {
   if (!match) return null;
 
   const type = match[1].toLowerCase();
+  const fold = match[2] as "+" | "-" | undefined;
   // 표식 줄(첫 줄)의 나머지가 제목, 줄바꿈 뒤가 본문 첫 문단이다.
   const rest: PhrasingContent[] = [{ ...head, value: head.value.slice(match[0].length) }, ...first.children.slice(1)];
   const title: PhrasingContent[] = [];
@@ -100,9 +100,13 @@ function toCallout(quote: Blockquote): HNode | null {
 
   return {
     type: "callout",
-    data: { hName: "div", hProperties: { className: ["callout", `callout-${type}`] } },
+    // 접을 수 있으면(`+` 펼친 채, `-` 접힌 채) <details>/<summary>로 그린다.
+    data: {
+      hName: fold ? "details" : "div",
+      hProperties: { className: ["callout", `callout-${type}`], ...(fold === "+" ? { open: true } : {}) },
+    },
     children: [
-      { type: "calloutTitle", data: { hName: "div", hProperties: { className: ["callout-title"] } }, children: titleNodes } as HNode,
+      { type: "calloutTitle", data: { hName: fold ? "summary" : "div", hProperties: { className: ["callout-title"] } }, children: titleNodes } as HNode,
       ...blocks,
     ],
     position: quote.position,
@@ -136,6 +140,14 @@ function errorLine(text: string): HNode["data"] {
   return { hName: "p", hChildren: [{ type: "text", value: text }] };
 }
 
+/** 그릴 수 없는 임베드의 대체: 원본 주소를 링크로(http/https 주소만 이 함수로 온다). */
+function linkLine(url: string): HNode["data"] {
+  return {
+    hName: "p",
+    hChildren: [{ type: "element", tagName: "a", properties: { href: url, rel: "noopener noreferrer nofollow" }, children: [{ type: "text", value: url }] }],
+  };
+}
+
 function imageSize(alt: string | null | undefined): { width?: number; height?: number } {
   const match = EMBED_SIZE_ALT.exec(alt ?? "");
   if (!match) return {};
@@ -163,10 +175,17 @@ function embedParagraph(paragraph: Paragraph, blueskyDids: ReadonlyMap<string, s
   if (only.type === "image") {
     const url = only.url.trim();
     const { width, height } = imageSize(only.alt);
-    const target = detectEmbed(url);
+    let target = detectEmbed(url);
+    if (target?.provider === "bluesky" && embedSource(target) === null) {
+      // 핸들 주소: 렌더 전에 알아낸 DID가 있으면 DID 주소로 바꾼다. 모르면 원본 링크만 둔다.
+      const handle = /\/profile\/([^/]+)\//.exec(target.url)?.[1];
+      const did = handle === undefined ? undefined : blueskyDids.get(handle);
+      const resolved = did === undefined ? null : withBlueskyDid(target, did);
+      if (resolved === null) return linkLine(target.url);
+      target = resolved;
+    }
     if (target !== null) return externalEmbed(target, width, height) ?? errorLine("[embed: 지원하지 않는 주소]");
     if (isVideoFileUrl(url)) return videoFileEmbed(url, width, height);
-    if (isBlueskyUrl(url)) return blueskyEmbed(url, blueskyDids, width, height);
   }
   return null;
 }

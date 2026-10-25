@@ -5,7 +5,6 @@ import remarkMath from "remark-math";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 import type { Root } from "mdast";
-import { isBlueskyUrl } from "./bluesky";
 import { isVideoFileUrl } from "./embeds";
 
 /**
@@ -44,7 +43,7 @@ const POSTLINK = /:postlink(?:\[((?:\\.|[^\]\\])*)\])?\{([^}]*)\}/g;
 const CODE_FENCE = /^\s*(`{3,}|~{3,})/;
 
 const CALLOUT_NAMES: Record<string, string> = { note: "NOTE", tip: "TIP", warning: "WARNING", info: "info", danger: "danger" };
-const EMBED_LEAVES = new Set(["youtube", "x", "soundcloud", "instagram", "pinterest"]);
+const EMBED_LEAVES = new Set(["youtube", "x", "soundcloud", "instagram", "pinterest", "bluesky"]);
 
 type Attrs = Record<string, string>;
 
@@ -192,10 +191,6 @@ function convertLeaf(text: string, line: number, options: LegacyMigrationOptions
   if (EMBED_LEAVES.has(name)) {
     const target = detectEmbed((attrs.url ?? label).trim());
     return target?.provider === name ? [`![${sizeAlt(attrs, notices, line)}](${target.url})`] : fail(`${name} 주소를 알아보지 못했습니다`);
-  }
-  if (name === "bluesky") {
-    const url = (attrs.url ?? label).trim();
-    return isBlueskyUrl(url) ? [`![${sizeAlt(attrs, notices, line)}](${url})`] : fail("bluesky 주소가 올바르지 않습니다");
   }
   if (name === "video") {
     const url = (attrs.url ?? label).trim();

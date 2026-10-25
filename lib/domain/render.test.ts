@@ -341,6 +341,16 @@ describe("renderPostHtml", () => {
     });
   });
 
+  describe("접을 수 있는 콜아웃", () => {
+    it("[!note]-는 접힌 채, [!note]+는 펼친 채인 <details>가 된다", async () => {
+      const closed = await renderPostHtml("> [!note]- 접힌 제목\n> 내용");
+      expect(closed).toContain('<details class="callout callout-note"><summary class="callout-title">접힌 제목</summary>');
+      expect(closed).not.toContain("open");
+      const open = await renderPostHtml("> [!tip]+\n> 내용");
+      expect(open).toMatch(/<details class="callout callout-tip" open[^>]*><summary class="callout-title">팁<\/summary>/);
+    });
+  });
+
   describe("임베드 위젯 크기 및 렌더링", () => {
     it("![|500x300](유튜브)는 가로·세로를 인라인 스타일로 변환한다", async () => {
       const html = await renderPostHtml("![|500x300](https://youtu.be/dQw4w9WgXcQ)");

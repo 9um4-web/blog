@@ -44,7 +44,7 @@ Obsidian에서 열어도 대부분 그대로 보인다(블로그 전용인 것�
 - 종류는 **아무 이름이나** 쓸 수 있다(영문 소문자·숫자·`-`·`_`, 32자까지; 대소문자 무시). `note`·`tip`·`important`·`warning`·`caution`은 GitHub 알림과 같고, `info`·`danger` 등 Obsidian 이름도 된다.
 - 표식 줄 뒤의 글이 제목이다. 없으면 종류별 기본 제목(`note` 노트 · `info` 정보 · `tip` 팁 · `warning` 주의 · `danger` 위험, 그 밖에는 패키지가 정한 이름). 에디터는 제목을 표식 다음 줄의 굵은 글(`> **제목**`)로 내보내는데, 이것도 제목으로 읽는다.
 - 안에 다른 블록(목록·코드·중첩 콜아웃 `> > [!tip]`)을 넣을 수 있다. 색은 `app/globals.css`의 `.callout-*`(note·info → 파랑, tip → 초록, warning → 주황, danger·caution → 빨강, important → 보라, 그 밖 → 기본 색).
-- 접기 표식 `[!note]-`는 지원하지 않는다(표식은 무시되고 항상 펼쳐 보인다).
+- **접기**: `> [!note]- 제목`은 접힌 채로, `> [!note]+ 제목`은 펼친 채로 시작하는 접을 수 있는 콜아웃(`<details>`)이다. 제목 줄을 눌러 접고 편다.
 
 ## 임베드 `![](주소)`
 
@@ -59,7 +59,7 @@ Obsidian에서 열어도 대부분 그대로 보인다(블로그 전용인 것�
 - 지원: **YouTube**(`youtu.be`·`shorts`·`embed` 주소도 됨) · **X**(`twitter.com`도) · **Instagram**(`/p/`·`/reel/`) · **Pinterest**(`/pin/`) · **SoundCloud**. 주소는 정해진 모양만 받고, iframe 주소는 공급자별 고정 도메인으로 만든다(임의 주소를 넣을 수 없다).
 - 크기: alt 자리에 `|가로` 또는 `|가로x세로`(px, 100~2000의 정수). 에디터 미리보기에서 드래그하면 이 값이 자동으로 바뀐다. 가로만 있으면 유튜브·비디오는 비율을 유지한다.
 - **비디오 파일**: `![](https://…/영상.mp4)` (`mp4`·`webm`·`ogv`·`mov`·`m4v`). Obsidian도 이렇게 쓴다.
-- **Bluesky**(블로그 전용): `![](https://bsky.app/profile/핸들/post/글id)`. Obsidian에서는 그냥 이미지로 보인다.
+- **Bluesky**: `![](https://bsky.app/profile/핸들 또는 DID/post/글id)`. iframe 주소가 DID만 받아서 핸들은 렌더 때 공개 API로 DID를 알아낸다(결과는 캐시, 못 알아내면 원본 링크만 보인다). Obsidian에서는 그냥 이미지로 보인다.
 
 ## 글·시리즈 카드 `![[슬러그]]`
 

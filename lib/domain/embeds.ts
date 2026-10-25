@@ -50,6 +50,12 @@ const PROVIDER_LOOK: Record<EmbedProvider, { width: string; height?: string; asp
     title: "Pinterest pin",
     iframe: { frameBorder: "0", scrolling: "no", style: "width: 100%; height: 100%; border: none;" },
   },
+  bluesky: {
+    width: "100%",
+    height: "350px",
+    title: "Bluesky post",
+    iframe: { frameBorder: "0", scrolling: "no", style: "width: 100%; height: 100%; border: none;" },
+  },
 };
 
 const SOUNDCLOUD_LOOK = "&color=%23ff5500&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true";

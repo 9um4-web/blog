@@ -14,6 +14,8 @@ import { createRoot } from "react-dom/client";
 
 import type { EmbedLine, PostEmbedPostCard, PostEmbedSeriesCard } from "@/lib/post-embeds";
 import { exportMarkdown, IMPORT_CONTEXT, parseBlogEmbedInput } from "@/lib/wysiwyg-markdown";
+import { resolveBlueskyDid } from "@/lib/domain/bluesky";
+import { PostLink } from "./post-link-extension";
 import { EmbedCardBody, fetchEmbedCard } from "./embed-card-preview";
 
 export interface WysiwygEditorHandle {
@@ -76,6 +78,8 @@ export const WysiwygEditor = forwardRef<WysiwygEditorHandle, WysiwygEditorProps>
         },
         references: Object.fromEntries(REFERENCE_KINDS.map((kind) => [kind, referenceResolver(kind)])),
         parseEmbedInput: (input) => parseBlogEmbedInput(input, window.location.origin),
+        // 핸들 주소의 Bluesky 임베드는 DID를 알아내야 그려진다(공개 API, 결과는 캐시).
+        resolveBlueskyHandle: resolveBlueskyDid,
       }),
     [],
   );
@@ -92,8 +96,17 @@ export const WysiwygEditor = forwardRef<WysiwygEditorHandle, WysiwygEditorProps>
         settle: true,
         markdown: IMPORT_CONTEXT,
         // 이미지는 블로그 업로드(`![](/img/…)`)로만 넣고 에디터의 이미지 노드(앱 저장소 해시)는 쓰지 않는다. 토글도 블로그 문법에 없다.
-        transform: (list) => list.filter((extension) => extension.name !== "image" && extension.name !== "toggle"),
-        slashItems: (core) => core.filter((item) => !HIDDEN_SLASH_ITEMS.has(item.id)),
+        transform: (list) => [...list.filter((extension) => extension.name !== "image" && extension.name !== "toggle"), PostLink],
+        slashItems: (core) => [
+          ...core.filter((item) => !HIDDEN_SLASH_ITEMS.has(item.id)),
+          { id: "blog-postlink", label: "글 링크", description: "[[슬러그|텍스트]] — 문장 안에서 다른 글로 가는 링크", keywords: ["postlink", "wikilink", "link", "글", "링크", "포스트"] },
+        ],
+        slashHandlers: {
+          "blog-postlink": (_editor, chain) => {
+            const slug = window.prompt("연결할 글의 슬러그 (예: my-post)")?.trim().toLowerCase();
+            return slug ? chain.insertContent({ type: "pageLink", attrs: { pageId: slug } }).run() : false;
+          },
+        },
       }),
     [ports],
   );

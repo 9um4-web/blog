@@ -10,7 +10,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## 아키텍처
 
-- `lib/domain/` — 순수 도메인 로직 (Next 비의존, **전부 vitest 대상**). markdown.ts(heading_tree·발췌), render.ts(unified 파이프라인: gfm→math→Obsidian 문법(obsidian.ts)→rehype→katex→URL새니타이즈→섹션래핑→shiki→stringify), obsidian.ts(콜아웃·임베드·`![[…]]`·`[[…]]`·`&emsp;` 들여쓰기 remark 플러그인), html-wrappers.ts(`<div align>`·`<div data-fold>`), embeds.ts·bluesky.ts(임베드 hast), legacy-dialect.ts(옛 방언 → 새 문법 변환기, 일회성), slug.ts(동적 예약어), tag-closure.ts, ordering.ts(fractional key), image.ts
+- `lib/domain/` — 순수 도메인 로직 (Next 비의존, **전부 vitest 대상**). markdown.ts(heading_tree·발췌), render.ts(unified 파이프라인: gfm→math→Obsidian 문법(obsidian.ts)→rehype→katex→URL새니타이즈→섹션래핑→shiki→stringify), obsidian.ts(콜아웃·임베드·`![[…]]`·`[[…]]`·`&emsp;` 들여쓰기 remark 플러그인), html-wrappers.ts(`<div align>`·`<div data-fold>`), embeds.ts(임베드 hast)·bluesky.ts(Bluesky 핸들 → DID 해석), legacy-dialect.ts(옛 방언 → 새 문법 변환기, 일회성), slug.ts(동적 예약어), tag-closure.ts, ordering.ts(fractional key), image.ts
 - `lib/nav-items.ts` — 헤더 메뉴 병합/토글/재배치 순수 로직 (아래 "헤더 메뉴" 참고)
 - `lib/post-embeds.ts` — 본문 내 포스트/시리즈 임베드 placeholder 파싱·치환 순수 로직 (아래 참고)
 - `lib/db/` — Drizzle 스키마·마이그레이션·조회(queries.ts). 이미지가 bytea로 DB에 저장됨
@@ -44,7 +44,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## 마크다운 확장 문법 (render.ts에서 처리)
 
-`![](유튜브·X·Instagram·Pinterest·SoundCloud·Bluesky 주소)`/`![](영상.mp4)` 임베드 · `![[슬러그]]`/`![[series/슬러그]]` 카드 · `[[슬러그|텍스트]]` 글 링크 · `> [!종류] 제목` 콜아웃(종류 자유) · `$…$`/`$$…$$` KaTeX ·
+`![](유튜브·X·Instagram·Pinterest·SoundCloud·Bluesky 주소)`/`![](영상.mp4)` 임베드 · `![[슬러그]]`/`![[series/슬러그]]` 카드 · `[[슬러그|텍스트]]` 글 링크 · `> [!종류] 제목` 콜아웃(종류 자유, `[!종류]+/-`는 접을 수 있는 `<details>`) · `$…$`/`$$…$$` KaTeX ·
 `<div align="center|right">` 정렬 · 문단·제목 앞 `&emsp;`×(단계×2) 들여쓰기 · `<div data-fold="2~6|none">` 섹션 소속 오버라이드
 (문법 전체는 `markdown-syntax.md`. 옛 방언 `::youtube`·`:::note` 등은 없어졌다 — 옛 글은 관리자 "문법 변환"(`/admin/migrate-dialect`)으로 한 번 옮기고, 다 옮긴 뒤 그 페이지·`legacy-dialect.ts`는 지워도 된다)
 (fold: 지정 레벨 이하의 조상 섹션 직속으로 끌어올림. 이후 제목에는 구조적으로 소속 불가.
@@ -56,7 +56,7 @@ h=none 또는 해당 조상 없음 → data-nofold로 접기 면제)
 
 - 관리자 본문 편집기의 네 번째 모드("시각"). 기본 모드는 그대로 "통합"이고, 시각 모드는 쿠키(`post_editor_mode=wysiwyg`)로 고른 사람만 쓴다. 원본은 항상 마크다운(`contentMd`)이다.
 - 에디터는 `@gogum4/editor-{schema,markdown,core,react}` 패키지(별도 저장소 `gogum4/js-editor`)이고 GitHub Packages에서 `^0.3.0`으로 설치한다. **설치에 `read:packages` 권한의 토큰이 필요하다**: 로컬은 `~/.npmrc`의 `//npm.pkg.github.com/:_authToken=…`, Docker 빌드는 BuildKit 비밀 `npmrc`(`docker build --secret id=npmrc,src=$HOME/.npmrc`, Dockerfile의 deps 단계), GitHub Actions는 저장소 비밀 `GH_PACKAGES_TOKEN`(`deploy.yml`의 `npm ci`와 이미지 빌드 두 곳). 레포 루트 `.npmrc`는 레지스트리 주소만 가리킨다. 에디터를 고쳐야 하면 js-editor에서 고치고 게시한 뒤 버전을 올린다.
-- 열기만 해서는 본문이 바뀌지 않는다: 문서를 연 직후의 마크다운과 같으면 내보내지 않는다. 고치면 Obsidian 문법으로 정규화되어 나간다(`lib/wysiwyg-markdown.ts`: obsidian 방언 + `profile: { rawEmbeds, keepAnyHref, mdLinksToPages: false }`로 이미지·HTML·열 정렬 표를 원문 보존, 빈 줄 간격·`~x~`→`~~x~~` 등 렌더가 같은 정규화). 임베드(`![](주소)`)·들여쓰기(`&emsp;`, Tab)·글/시리즈 카드(`![[…]]` → 에디터의 `reference` 노드, 종류 `post`/`series`, 해석기는 `wysiwyg-editor.tsx`)는 구조 노드가 되고, 에디터가 구조를 모르는 것(이미지·HTML·열 정렬 표·한 줄 `$$`·`[[글|텍스트]]`·Bluesky)은 회색 상자/칸 또는 글자의 **원문 그대로** 보존된다. `/임베드`에 슬러그·사이트 주소를 붙이면 글/시리즈 카드가 된다.
+- 열기만 해서는 본문이 바뀌지 않는다: 문서를 연 직후의 마크다운과 같으면 내보내지 않는다. 고치면 Obsidian 문법으로 정규화되어 나간다(`lib/wysiwyg-markdown.ts`: obsidian 방언 + `profile: { rawEmbeds, keepAnyHref, mdLinksToPages: false }`로 이미지·HTML·열 정렬 표를 원문 보존, 빈 줄 간격·`~x~`→`~~x~~` 등 렌더가 같은 정규화). 임베드(`![](주소)`, Bluesky 포함 — 핸들은 `resolveBlueskyHandle` 포트로 DID로 바꿔 저장)·들여쓰기(`&emsp;`, Tab)·콜아웃 제목/접기(`title`/`fold`)·글/시리즈 카드(`![[…]]` → 에디터의 `reference` 노드, 종류 `post`/`series`, 해석기는 `wysiwyg-editor.tsx`)·글 링크(`[[슬러그|텍스트]]` → 블로그가 정의한 `pageLink` 노드, `components/admin/post-link-extension.ts`)는 구조 노드가 되고, 에디터가 구조를 모르는 것(이미지·HTML·열 정렬 표·한 줄 `$$`)은 회색 상자/칸의 **원문 그대로** 보존된다. `/임베드`에 슬러그·사이트 주소를 붙이면 글/시리즈 카드가 된다.
 - 에디터의 이미지·토글 노드는 쓰지 않는다(`transform`으로 뺌). 이미지는 업로드 버튼의 마크다운(`![](/images/…)`)이 원문 상자로 들어가고 그림으로 보인다. 크기 조절(드래그)은 통합·분할 모드에서만 된다.
 - 에디터 스타일은 밝은 배경 기준이라 어두운 테마에서도 흰 종이 위에 둔다(`not-prose`). 에디터 번들은 `next/dynamic`으로 시각 모드를 열 때만 불러온다.
 
