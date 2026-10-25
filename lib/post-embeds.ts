@@ -1,3 +1,4 @@
+/** 본문 임베드 한 줄(`![[슬러그]]`, `![[series/슬러그]]`)은 render.ts가 `data-embed` 자리표시 div로 바꾼다. 실제 카드는 DB가 있어야 그려서 2단계로 나눈다. */
 const EMBED_PLACEHOLDER_RE = /<div\b([^>]*\bdata-embed="(?:post|series)"[^>]*)><\/div>/g;
 const EMBED_POST_SLUG_PATTERN = /^[a-z0-9-]{1,100}$/;
 
@@ -12,12 +13,6 @@ function normalizePostSlug(raw: string | null): string | null {
   return EMBED_POST_SLUG_PATTERN.test(slug) ? slug : null;
 }
 
-function normalizeSeriesId(raw: string | null): number | null {
-  if (!raw) return null;
-  const id = Number(raw.trim());
-  if (!Number.isInteger(id) || id <= 0) return null;
-  return id;
-}
 
 function normalizeSourceLine(raw: string | null): number | null {
   if (!raw) return null;
@@ -63,7 +58,7 @@ export interface PostEmbedData {
 type RawEmbedPart =
   | { kind: "html"; html: string }
   | { kind: "post"; slug: string; sourceLines?: { start: number; end: number } }
-  | { kind: "series"; seriesId: number; sourceLines?: { start: number; end: number } }
+  | { kind: "series"; seriesSlug: string; sourceLines?: { start: number; end: number } }
   | { kind: "error"; message: string; sourceLines?: { start: number; end: number } };
 
 export type HydratedPostBodyPart =
@@ -96,9 +91,9 @@ export function splitPostEmbedParts(html: string): RawEmbedPart[] {
       if (slug) parts.push({ kind: "post", slug, sourceLines });
       else parts.push({ kind: "error", message: "[post: 잘못된 slug]", sourceLines });
     } else if (type === "series") {
-      const seriesId = normalizeSeriesId(readAttr(attrs, "data-series-id"));
-      if (seriesId !== null) parts.push({ kind: "series", seriesId, sourceLines });
-      else parts.push({ kind: "error", message: "[series: 잘못된 id]", sourceLines });
+      const seriesSlug = normalizePostSlug(readAttr(attrs, "data-series-slug"));
+      if (seriesSlug) parts.push({ kind: "series", seriesSlug, sourceLines });
+      else parts.push({ kind: "error", message: "[series: 잘못된 slug]", sourceLines });
     }
 
     lastIndex = index + full.length;
@@ -115,19 +110,19 @@ export function splitPostEmbedParts(html: string): RawEmbedPart[] {
 
 export function extractPostEmbedRequests(parts: RawEmbedPart[]) {
   const postSlugs = new Set<string>();
-  const seriesIds = new Set<number>();
+  const seriesSlugs = new Set<string>();
 
   for (const part of parts) {
     if (part.kind === "post") postSlugs.add(part.slug);
-    else if (part.kind === "series") seriesIds.add(part.seriesId);
+    else if (part.kind === "series") seriesSlugs.add(part.seriesSlug);
   }
 
-  return { postSlugs: [...postSlugs], seriesIds: [...seriesIds] };
+  return { postSlugs: [...postSlugs], seriesSlugs: [...seriesSlugs] };
 }
 
 export function hydratePostEmbedParts(parts: RawEmbedPart[], data: PostEmbedData): HydratedPostBodyPart[] {
   const postBySlug = new Map(data.postCards.map((card) => [card.slug, card]));
-  const seriesById = new Map(data.seriesCards.map((series) => [series.id, series]));
+  const seriesBySlug = new Map(data.seriesCards.map((series) => [series.slug, series]));
 
   return parts.map((part): HydratedPostBodyPart => {
     if (part.kind === "html") return part;
@@ -144,24 +139,27 @@ export function hydratePostEmbedParts(parts: RawEmbedPart[], data: PostEmbedData
         : { kind: "error", message: `[post: 찾을 수 없는 포스트 (${escapeHtml(part.slug)})]`, sourceLines };
     }
 
-    const series = seriesById.get(part.seriesId);
+    const series = seriesBySlug.get(part.seriesSlug);
     return series
       ? { kind: "series-card", series, sourceLines }
-      : { kind: "error", message: `[series: 찾을 수 없는 시리즈 (${part.seriesId})]`, sourceLines };
+      : { kind: "error", message: `[series: 찾을 수 없는 시리즈 (${escapeHtml(part.seriesSlug)})]`, sourceLines };
   });
 }
 
-export type EmbedLine = { kind: "post"; slug: string } | { kind: "series"; id: number };
+export type EmbedLine = { kind: "post"; slug: string } | { kind: "series"; slug: string };
 
-/** 편집기의 원문 상자 한 줄(`::post{slug=…}` / `::series{id=…}`)을 읽는다. 임베드가 아니거나 값이 잘못됐으면 null. */
+/** 한 줄(`![[슬러그]]` / `![[series/슬러그]]`)을 읽는다. 임베드가 아니거나 슬러그가 잘못됐으면 null. 시각 편집기의 참조(reference) 가져오기가 쓴다. */
 export function parseEmbedLine(text: string): EmbedLine | null {
-  const match = /^\s*::(post|series)\{([^}\n]*)\}\s*$/.exec(text);
+  const match = /^\s*!\[\[([^\]\n|#]+)\]\]\s*$/.exec(text);
   if (!match) return null;
-  const body = match[2] ?? "";
-  if (match[1] === "post") {
-    const slug = normalizePostSlug(/(?:^|[\s,])slug=("?)([^\s,"}]*)\1/.exec(body)?.[2] ?? null);
-    return slug ? { kind: "post", slug } : null;
-  }
-  const id = normalizeSeriesId(/(?:^|[\s,])id=("?)([^\s,"}]*)\1/.exec(body)?.[2] ?? null);
-  return id !== null ? { kind: "series", id } : null;
+  const target = match[1].trim();
+  const series = /^series\/(.+)$/.exec(target);
+  const slug = normalizePostSlug(series ? series[1] : target);
+  if (!slug) return null;
+  return series ? { kind: "series", slug } : { kind: "post", slug };
+}
+
+/** parseEmbedLine의 반대: 임베드를 한 줄 Markdown으로. */
+export function formatEmbedLine(embed: EmbedLine): string {
+  return embed.kind === "post" ? `![[${embed.slug}]]` : `![[series/${embed.slug}]]`;
 }

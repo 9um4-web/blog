@@ -56,7 +56,7 @@ export function PostPreview({
       const heading = (e.target as HTMLElement).closest("h2, h3, h4, h5, h6");
       if (!heading || !bodyRef.current?.contains(heading)) return;
       const section = heading.closest("section[data-heading-id]");
-      // :::indent 등 컨테이너 디렉티브 안에 중첩된 헤딩은 자기 섹션이 없어 heading이
+      // 인용·콜아웃·접기(<div data-fold>) 등 래퍼 안에 중첩된 헤딩은 자기 섹션이 없어 heading이
       // section의 직계 자식이 아니다 — 이 경우 엉뚱한 조상 섹션이 접히지 않도록 무시
       if (!section || heading.parentElement !== section) return;
       if (section.hasAttribute("data-collapsed")) {

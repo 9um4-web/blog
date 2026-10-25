@@ -78,17 +78,17 @@ describe("extractHeadingTree", () => {
     expect(tree("")).toEqual([]);
   });
 
-  it(":::indent/:::center/:::right 안의 헤딩은 최상위로 끌어올려져 트리에 포함된다", () => {
+  it("<div align> 안의 헤딩은 최상위로 끌어올려져 트리에 포함된다", () => {
     const md = [
       "## A",
-      ":::indent{n=1}",
+      '<div align="center">',
       "### B",
       "본문",
-      ":::",
+      "</div>",
       "## C",
-      ":::center",
+      '<div align="right">',
       "### D",
-      ":::",
+      "</div>",
     ].join("\n\n");
     const t = tree(md);
     expect(t).toHaveLength(2);
@@ -96,8 +96,14 @@ describe("extractHeadingTree", () => {
     expect(t[1].children.map((c) => c.text)).toEqual(["D"]);
   });
 
-  it(":::note 콜아웃 안의 헤딩은 여전히 제외된다 (의미 있는 블록이라 대상 아님)", () => {
-    const md = ["## A", ":::note", "### 콜아웃 속 헤딩", ":::"].join("\n\n");
+  it('<div data-fold> 안의 헤딩은 래퍼 안에 남아 트리에서 제외된다 (렌더의 섹션 래핑과 같은 규칙)', () => {
+    const md = ["## A", '<div data-fold="2">', "### 접기 속 헤딩", "</div>", "### B"].join("\n\n");
+    const t = tree(md);
+    expect(t[0].children.map((c) => c.text)).toEqual(["B"]);
+  });
+
+  it("> [!note] 콜아웃 안의 헤딩은 여전히 제외된다 (의미 있는 블록이라 대상 아님)", () => {
+    const md = ["## A", "> [!note]\n> ### 콜아웃 속 헤딩"].join("\n\n");
     const t = tree(md);
     expect(t).toHaveLength(1);
     expect(t[0].children).toEqual([]);
@@ -116,14 +122,10 @@ describe("excerptFromMarkdown", () => {
     );
   });
 
-  it("콜아웃/유튜브 디렉티브 원문이 발췌에 섞이지 않는다", () => {
-    const md = [":::note", "콜아웃 내용", ":::", "", "::youtube[dQw4w9WgXcQ]", "", "실제 본문."].join(
-      "\n",
-    );
+  it("콜아웃·임베드·글 임베드 원문이 발췌에 섞이지 않는다", () => {
+    const md = ["> [!note]", "> 콜아웃 내용", "", "![](https://youtu.be/dQw4w9WgXcQ)", "", "![[other-post]]", "", "실제 본문."].join("\n");
     const result = excerptFromMarkdown(md);
-    expect(result).toContain("실제 본문.");
-    expect(result).not.toContain(":::");
-    expect(result).not.toContain("::youtube");
+    expect(result).toBe("실제 본문.");
   });
 
   it("maxLength에서 말줄임표로 자른다", () => {

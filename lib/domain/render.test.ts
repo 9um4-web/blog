@@ -46,19 +46,16 @@ describe("renderPostHtml", () => {
     expect(html.indexOf("서두 문단")).toBeLessThan(html.indexOf("<section"));
   });
 
-  it(":::indent 안의 헤딩은 자기만의 section으로 감싸져 A 섹션의 하위 섹션이 된다", async () => {
-    const md = ["## A", ":::indent{n=1}", "### B", "본문", ":::"].join("\n\n");
+  it("<div align> 안의 헤딩은 자기만의 section으로 감싸져 A 섹션의 하위 섹션이 된다", async () => {
+    const md = ["## A", '<div align="center">', "### B", "본문", "</div>"].join("\n\n");
     const html = await renderPostHtml(md);
-    expect(html).toContain('data-heading-id="a"');
-    expect(html).toContain('data-heading-id="b"');
     const aStart = html.indexOf('data-heading-id="a"');
     const bStart = html.indexOf('data-heading-id="b"');
-    // B는 indent-block 안이 아니라 독립된 section이면서 A의 하위에 위치
     expect(bStart).toBeGreaterThan(aStart);
-    expect(html.slice(aStart, bStart)).not.toContain("indent-block");
-    // B 헤딩 뒤의 본문 문단은 여전히 들여쓰기 스타일을 유지한다
-    const bodyIdx = html.indexOf("본문");
-    expect(html.slice(bStart, bodyIdx)).toContain("indent-block");
+    // B는 정렬 래퍼 안이 아니라 독립된 section이면서 A의 하위에 위치
+    expect(html.slice(aStart, bStart)).not.toContain("align-center");
+    // B 헤딩 뒤의 본문 문단은 여전히 정렬 래퍼 안에 있다
+    expect(html.slice(bStart, html.indexOf("본문"))).toContain("align-center");
   });
 
   it("GFM 테이블을 렌더링한다", async () => {
@@ -109,55 +106,89 @@ describe("renderPostHtml", () => {
     expect(html).not.toContain("javascript:");
   });
 
-  it("::youtube[영상ID]를 youtube-nocookie iframe으로 변환한다", async () => {
-    const html = await renderPostHtml("::youtube[dQw4w9WgXcQ]");
+  it("![](유튜브 주소)를 youtube-nocookie iframe으로 변환한다", async () => {
+    const html = await renderPostHtml("![](https://www.youtube.com/watch?v=dQw4w9WgXcQ)");
     expect(html).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"');
     expect(html).toContain("<iframe");
     expect(html).toContain("video-embed");
   });
 
-  it("잘못된 유튜브 ID는 iframe을 만들지 않는다", async () => {
-    const html = await renderPostHtml("::youtube[ab]");
-    expect(html).not.toContain("<iframe");
-    expect(html).toContain("잘못된 영상 ID");
+  it("youtu.be·shorts 같은 다른 모양의 유튜브 주소도 같은 iframe이 된다", async () => {
+    for (const url of ["https://youtu.be/dQw4w9WgXcQ", "https://www.youtube.com/shorts/dQw4w9WgXcQ"]) {
+      expect(await renderPostHtml(`![](${url})`)).toContain("youtube-nocookie.com/embed/dQw4w9WgXcQ");
+    }
   });
 
-  it("::post{slug=...}를 임베드 placeholder로 변환한다", async () => {
-    const html = await renderPostHtml("::post{slug=hello-world}");
+  it("지원하지 않는 주소의 이미지 문법은 임베드가 아니라 평범한 이미지다", async () => {
+    const html = await renderPostHtml("![](https://example.com/watch?v=dQw4w9WgXcQ)");
+    expect(html).not.toContain("<iframe");
+    expect(html).toContain("<img");
+  });
+
+  it("![[슬러그]]를 글 임베드 placeholder로 변환한다", async () => {
+    const html = await renderPostHtml("![[hello-world]]");
     expect(html).toContain('data-embed="post"');
     expect(html).toContain('data-post-slug="hello-world"');
   });
 
-  it("::series{id=...}를 임베드 placeholder로 변환한다", async () => {
-    const html = await renderPostHtml("::series{id=12}");
+  it("![[series/슬러그]]를 시리즈 임베드 placeholder로 변환한다", async () => {
+    const html = await renderPostHtml("![[series/my-series]]");
     expect(html).toContain('data-embed="series"');
-    expect(html).toContain('data-series-id="12"');
+    expect(html).toContain('data-series-slug="my-series"');
   });
 
-  it("잘못된 post/series 임베드 인자는 안내 문구로 대체한다", async () => {
-    const html = await renderPostHtml(["::post{slug=한글}", "::series{id=abc}"].join("\n\n"));
-    expect(html).toContain("잘못된 slug");
-    expect(html).toContain("잘못된 id");
+  it("잘못된 글/시리즈 임베드 슬러그는 안내 문구로 대체한다", async () => {
+    const html = await renderPostHtml(["![[한글]]", "![[series/Bad_Slug]]"].join("\n\n"));
+    expect(html).toContain("[post: 잘못된 slug]");
+    expect(html).toContain("[series: 잘못된 slug]");
   });
 
-  it(":::note 콜아웃을 기본 제목과 함께 렌더한다", async () => {
-    const html = await renderPostHtml(":::note\n내용 문단입니다.\n:::");
+  it("> [!note] 콜아웃을 기본 제목과 함께 렌더한다", async () => {
+    const html = await renderPostHtml("> [!note]\n> 내용 문단입니다.");
     expect(html).toContain('class="callout callout-note"');
     expect(html).toContain('class="callout-title"');
     expect(html).toContain("노트");
     expect(html).toContain("내용 문단입니다.");
   });
 
-  it(":::warning[커스텀 제목] 라벨을 제목으로 쓴다", async () => {
-    const html = await renderPostHtml(":::warning[조심하세요!]\n위험한 내용.\n:::");
-    expect(html).toContain("callout-warning");
-    expect(html).toContain("조심하세요!");
-    expect(html).not.toContain(">주의<"); // 기본 제목으로 대체되지 않음
+  it("GitHub 알림(대문자)과 Obsidian 이름 모두 콜아웃이 된다", async () => {
+    expect(await renderPostHtml("> [!WARNING]\n> x")).toContain("callout-warning");
+    expect(await renderPostHtml("> [!rocket] 출발\n> x")).toContain("callout-rocket");
   });
 
-  it("알 수 없는 디렉티브는 조용히 무시된다", async () => {
+  it("> [!warning] 뒤의 글은 제목이 되고 기본 제목을 대신한다", async () => {
+    const html = await renderPostHtml("> [!warning] 조심하세요!\n> 위험한 내용.");
+    expect(html).toContain("callout-warning");
+    expect(html).toContain("조심하세요!");
+    expect(html).not.toContain(">주의<");
+    expect(html).toContain("위험한 내용.");
+  });
+
+  it("에디터가 내보내는 모양(> [!NOTE] 다음 줄의 굵은 글)도 제목으로 읽는다", async () => {
+    const html = await renderPostHtml("> [!NOTE]\n> **제목입니다**\n>\n> 본문");
+    expect(html).toContain('<div class="callout-title">제목입니다</div>');
+    expect(html).toContain("제목입니다");
+    expect(html).not.toContain(">노트<");
+    expect(html).toContain("본문");
+  });
+
+  it("콜아웃 안의 다른 블록과 중첩 콜아웃을 렌더한다", async () => {
+    const html = await renderPostHtml("> [!tip] 팁\n> 하나\n>\n> - 목록\n>\n> > [!danger]\n> > 안쪽");
+    expect(html).toContain("callout-tip");
+    expect(html).toContain("callout-danger");
+    expect(html).toMatch(/<li>\s*(<p>)?목록/);
+  });
+
+  it("[!종류]가 아닌 인용문은 그대로 인용문이다", async () => {
+    const html = await renderPostHtml("> 평범한 인용");
+    expect(html).toContain("<blockquote>");
+    expect(html).not.toContain("callout");
+  });
+
+  it("알 수 없는 ::디렉티브 글자는 그냥 글자다", async () => {
     const html = await renderPostHtml("본문\n\n::unknown[x]");
     expect(html).toContain("본문");
+    expect(html).toContain("::unknown[x]");
   });
 
   it("$인라인$ 수식을 KaTeX로 렌더한다", async () => {
@@ -176,34 +207,33 @@ describe("renderPostHtml", () => {
     expect(html).toContain("본문 유지");
   });
 
-  it(":::center / :::right 정렬 블록을 렌더한다", async () => {
+  it('<div align="center|right"> 정렬 블록을 렌더한다', async () => {
     const html = await renderPostHtml(
-      [":::center", "가운데 문단", ":::", "", ":::right", "오른쪽 문단", ":::"].join("\n"),
+      ['<div align="center">', "", "가운데 문단", "", "</div>", "", '<div align="right">', "", "오른쪽 문단", "", "</div>"].join("\n"),
     );
     expect(html).toContain('class="align-center"');
     expect(html).toContain('class="align-right"');
     expect(html).toContain("가운데 문단");
   });
 
-  it(":::indent{n=3}은 3단계 들여쓰기, 범위 밖 값은 보정된다", async () => {
-    const html = await renderPostHtml(":::indent{n=3}\n들여쓴 내용\n:::");
-    expect(html).toContain("margin-left: 4.5rem");
-    const over = await renderPostHtml(":::indent{n=99}\nx\n:::");
-    expect(over).toContain("margin-left: 12rem"); // 최대 8단계로 클램프
+  it("닫히지 않은 <div align>은 뒤의 내용을 삼키지 않는다", async () => {
+    const html = await renderPostHtml(['<div align="center">', "", "내용", "", "## 다음"].join("\n"));
+    expect(html).not.toContain("align-center");
+    expect(html).toContain("내용");
+    expect(html).toContain('data-heading-id="다음"');
   });
 
-  it(":::fold{h=2}는 블록을 h2 섹션 직속으로 끌어올린다 (h3 접기의 영향권 밖)", async () => {
-    const md = [
-      "## 제목1",
-      "내용 1",
-      "### 제목 2",
-      "내용 2",
-      ":::fold{h=2}",
-      "내용 3",
-      ":::",
-      "### 제목 3",
-      "이후 내용",
-    ].join("\n\n");
+  it("&emsp; 두 개가 한 단계 들여쓰기, 문단과 제목에 적용된다", async () => {
+    const html = await renderPostHtml("&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;들여쓴 내용");
+    expect(html).toContain("margin-left: 4.5rem");
+    expect(html).toContain("들여쓴 내용");
+    expect(html).not.toContain("\u2003");
+    const heading = await renderPostHtml("## &emsp;&emsp;제목");
+    expect(heading).toContain("margin-left: 1.5rem");
+  });
+
+  it('<div data-fold="2">는 블록을 h2 섹션 직속으로 끌어올린다 (h3 접기의 영향권 밖)', async () => {
+    const md = ["## 제목1", "내용 1", "### 제목 2", "내용 2", '<div data-fold="2">', "내용 3", "</div>", "### 제목 3", "이후 내용"].join("\n\n");
     const html = await renderPostHtml(md);
 
     // 제목 2 섹션(중첩 섹션 없음)은 자신의 </section>까지 — 내용 3을 포함하면 안 됨
@@ -221,8 +251,8 @@ describe("renderPostHtml", () => {
     expect(sectionC).not.toContain("내용 3");
   });
 
-  it(":::fold{h=none}은 data-nofold로 어떤 접기에서도 제외된다", async () => {
-    const md = ["## A", "### B", ":::fold{h=none}", "항상 보임", ":::"].join("\n\n");
+  it('<div data-fold="none">은 data-nofold로 어떤 접기에서도 제외된다', async () => {
+    const md = ["## A", "### B", '<div data-fold="none">', "항상 보임", "</div>"].join("\n\n");
     const html = await renderPostHtml(md);
     expect(html).toContain("data-nofold");
     // 최상위 열린 섹션(A)의 직속 자식 — B 섹션 밖에 위치
@@ -230,8 +260,8 @@ describe("renderPostHtml", () => {
     expect(sectionB).not.toContain("항상 보임");
   });
 
-  it("fold에 현재보다 깊은/잘못된 h를 지정하면 기본 소속과 동일하게 동작한다", async () => {
-    const md = ["## A", ":::fold{h=6}", "그대로 A 소속", ":::"].join("\n\n");
+  it("fold에 현재보다 깊은 h를 지정하면 기본 소속과 동일하게 동작한다", async () => {
+    const md = ["## A", '<div data-fold="6">', "그대로 A 소속", "</div>"].join("\n\n");
     const html = await renderPostHtml(md);
     // h=6 ≥ 현재(2)이므로 A 섹션 직속 = 기본 동작, nofold 아님
     const sectionA = /<section[^>]*data-heading-id="a"[^>]*>[\s\S]*<\/section>/.exec(html)?.[0];
@@ -258,24 +288,21 @@ describe("renderPostHtml", () => {
     expect(html).toContain("data-footnotes");
   });
 
-  it(":postlink[텍스트]{slug=...}는 제목과 무관하게 지정한 텍스트로 인라인 링크를 만든다", async () => {
-    const html = await renderPostHtml("이전 글은 :postlink[여기서 보세요]{slug=old-post} 참고.");
+  it("[[슬러그|표시]]는 글 링크가 되고 표시 글을 쓴다", async () => {
+    const html = await renderPostHtml("이전 글은 [[old-post|여기서 보세요]] 참고.");
     expect(html).toContain('<a href="/old-post" class="post-link">여기서 보세요</a>');
     // 문단 안에 인라인으로 들어가야 함(블록으로 분리되면 안 됨)
     expect(html).toMatch(/<p>[^<]*<a[^>]*class="post-link"[^>]*>[^<]*<\/a>[^<]*<\/p>/);
   });
 
-  it(":postlink에 라벨이 없으면 slug를 텍스트로 대신 쓴다", async () => {
-    const html = await renderPostHtml(":postlink{slug=fallback-slug}");
-    expect(html).toContain(">fallback-slug</a>");
+  it("[[슬러그]]는 슬러그를 글자로 쓴다", async () => {
+    expect(await renderPostHtml("[[fallback-slug]]")).toContain(">fallback-slug</a>");
   });
 
-  it(":postlink의 잘못된 slug는 인라인 에러로 대체되고 문단이 안 끊긴다", async () => {
-    const html = await renderPostHtml("앞 :postlink[텍스트]{slug=invalid_slug} 뒤");
-    expect(html).toContain("md-postlink-error");
-    expect(html).toContain("[postlink: 잘못된 slug]");
-    expect(html).toContain("앞");
-    expect(html).toContain("뒤");
+  it("슬러그 모양이 아닌 [[…]]는 링크가 아니라 글자다", async () => {
+    const html = await renderPostHtml("앞 [[invalid_slug]] 뒤");
+    expect(html).not.toContain("<a");
+    expect(html).toContain("[[invalid_slug]]");
   });
 
   describe("이미지 크기 조절 (rehypeImageResize)", () => {
@@ -314,40 +341,55 @@ describe("renderPostHtml", () => {
     });
   });
 
+  describe("접을 수 있는 콜아웃", () => {
+    it("[!note]-는 접힌 채, [!note]+는 펼친 채인 <details>가 된다", async () => {
+      const closed = await renderPostHtml("> [!note]- 접힌 제목\n> 내용");
+      expect(closed).toContain('<details class="callout callout-note"><summary class="callout-title">접힌 제목</summary>');
+      expect(closed).not.toContain("open");
+      const open = await renderPostHtml("> [!tip]+\n> 내용");
+      expect(open).toMatch(/<details class="callout callout-tip" open[^>]*><summary class="callout-title">팁<\/summary>/);
+    });
+  });
+
   describe("임베드 위젯 크기 및 렌더링", () => {
-    it("::youtube에 w, h 속성이 주어지면 인라인 스타일로 변환한다", async () => {
-      const html = await renderPostHtml("::youtube[dQw4w9WgXcQ]{w=500 h=300}");
+    it("![|500x300](유튜브)는 가로·세로를 인라인 스타일로 변환한다", async () => {
+      const html = await renderPostHtml("![|500x300](https://youtu.be/dQw4w9WgXcQ)");
       expect(html).toContain('style="width: 500px; height: 300px; aspect-ratio: auto"');
       expect(html).toContain('data-embed-type="youtube"');
     });
 
-    it("::video에 w 속성만 주어지면 height는 지정하지 않고 aspect-ratio를 유지한다", async () => {
-      const html = await renderPostHtml("::video[https://example.com/video.mp4]{w=600}");
+    it("범위 밖 크기(100~2000 밖)는 무시하고 기본 크기를 쓴다", async () => {
+      const html = await renderPostHtml("![|5000](https://youtu.be/dQw4w9WgXcQ)");
+      expect(html).toContain('style="width: 100%; aspect-ratio: 16 / 9"');
+    });
+
+    it("![|600](영상.mp4)는 height를 지정하지 않고 aspect-ratio를 유지한다", async () => {
+      const html = await renderPostHtml("![|600](https://example.com/video.mp4)");
       expect(html).toContain('style="width: 600px; aspect-ratio: 16 / 9"');
       expect(html).toContain("<video");
     });
 
-    it("::x, ::soundcloud, ::instagram, ::pinterest, ::bluesky가 올바른 iframe으로 렌더링된다", async () => {
-      const xHtml = await renderPostHtml("::x[https://x.com/user/status/123456]");
+    it("X·SoundCloud·Instagram·Pinterest·Bluesky 주소가 올바른 iframe으로 렌더링된다", async () => {
+      const xHtml = await renderPostHtml("![](https://x.com/user/status/123456)");
       expect(xHtml).toContain('src="https://platform.twitter.com/embed/Tweet.html?id=123456"');
 
-      const scHtml = await renderPostHtml("::soundcloud[https://soundcloud.com/artist/track]");
+      const scHtml = await renderPostHtml("![](https://soundcloud.com/artist/track)");
       expect(scHtml).toContain('src="https://w.soundcloud.com/player/?url=https%3A%2F%2Fsoundcloud.com%2Fartist%2Ftrack');
 
-      const instaHtml = await renderPostHtml("::instagram[https://www.instagram.com/p/ABCDEFG/]");
+      const instaHtml = await renderPostHtml("![](https://www.instagram.com/p/ABCDEFG/)");
       expect(instaHtml).toContain('src="https://www.instagram.com/p/ABCDEFG/embed/captioned/"');
 
-      const pinHtml = await renderPostHtml("::pinterest[https://www.pinterest.com/pin/9876543/]");
+      const pinHtml = await renderPostHtml("![](https://www.pinterest.com/pin/9876543/)");
       expect(pinHtml).toContain('src="https://assets.pinterest.com/ext/embed.html?id=9876543"');
 
       // DID 형태 URL은 네트워크 해석 없이 그대로 embed 주소가 된다
-      const bskyHtml = await renderPostHtml("::bluesky[https://bsky.app/profile/did:plc:z72i7hdynmk6r22z27h6tvur/post/rkey123]");
+      const bskyHtml = await renderPostHtml("![](https://bsky.app/profile/did:plc:z72i7hdynmk6r22z27h6tvur/post/rkey123)");
       expect(bskyHtml).toContain('src="https://embed.bsky.app/embed/did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/rkey123?id=rkey123"');
     });
 
-    it("소셜 임베드에 잘못된 URL이 오면 에러 메시지를 렌더링한다", async () => {
-      const html = await renderPostHtml("::x[invalid-url]");
-      expect(html).toContain("[x: 잘못된 URL]");
+    it("문장 속 이미지는 임베드가 되지 않는다 (한 줄에 이미지 하나뿐일 때만)", async () => {
+      const html = await renderPostHtml("앞 ![](https://youtu.be/dQw4w9WgXcQ) 뒤");
+      expect(html).not.toContain("<iframe");
     });
   });
 });

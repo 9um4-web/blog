@@ -10,6 +10,7 @@ const NAV = [
   { href: "/admin/images", label: "이미지" },
   { href: "/admin/navigation", label: "메뉴" },
   { href: "/admin/settings", label: "설정" },
+  { href: "/admin/migrate-dialect", label: "문법 변환" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
