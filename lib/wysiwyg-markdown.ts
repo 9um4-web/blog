@@ -1,4 +1,5 @@
 import { docToMarkdown, type ImportContext } from "@gogum4/editor-markdown";
+import { BLOG_EXTRAS } from "@/lib/domain/extras";
 import { formatEmbedLine, type EmbedLine, parseEmbedLine } from "@/lib/post-embeds";
 
 // 시각 편집기(components/admin/wysiwyg-editor.tsx)가 마크다운을 읽고 쓰는 규칙. 화면 없이 시험할 수 있게 순수 함수로 따로 둔다.
@@ -13,6 +14,8 @@ export const IMPORT_CONTEXT: ImportContext = {
   profile: { rawEmbeds: true, keepAnyHref: true, mdLinksToPages: false },
   embeds: true,
   indent: true,
+  // 추가 문법(하이라이트·색·약어·주석·태그·인용·정의 목록·목차·이모지). 렌더러(lib/domain/extras.ts)와 같은 값이다.
+  extras: BLOG_EXTRAS,
   references: (line) => {
     const embed = parseEmbedLine(line);
     return embed === null ? null : { kind: embed.kind, id: embed.slug };
@@ -23,6 +26,7 @@ export const IMPORT_CONTEXT: ImportContext = {
 export function exportMarkdown(json: Parameters<typeof docToMarkdown>[0]): string {
   return docToMarkdown(json, {
     pageTitle: (pageId) => pageId,
+    extras: BLOG_EXTRAS,
     references: {
       toMarkdown: (kind, id) => (kind === "post" || kind === "series" ? formatEmbedLine({ kind, slug: id }) : undefined),
     },

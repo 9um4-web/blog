@@ -6,7 +6,8 @@
 import "@gogum4/editor-react/styles.css";
 
 import { memoryPorts, type ReferenceResolver } from "@gogum4/editor-core";
-import { createReactExtensions, EditorPortsProvider, FootnoteEditorHost, MathEditorHost, TableToolbar } from "@gogum4/editor-react";
+import { createReactExtensions, EditorPortsProvider, FootnoteEditorHost, MathEditorHost, SelectionToolbar, TableToolbar } from "@gogum4/editor-react";
+import { BLOG_EXTRAS } from "@/lib/domain/extras";
 import { markdownToDoc } from "@gogum4/editor-markdown";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from "react";
@@ -92,6 +93,7 @@ export const WysiwygEditor = forwardRef<WysiwygEditorHandle, WysiwygEditorProps>
         reference: true,
         embed: true,
         indent: true,
+        extras: BLOG_EXTRAS,
         // 열자마자 문서 정리를 끝낸다(원문 상자·인라인 원자 노드를 처음 누를 때의 선택 오류 방지). 변경 여부는 내보낸 마크다운을 기준과 비교해 가린다.
         settle: true,
         markdown: IMPORT_CONTEXT,
@@ -164,6 +166,7 @@ export const WysiwygEditor = forwardRef<WysiwygEditorHandle, WysiwygEditorProps>
       <div className="not-prose min-h-[24rem] rounded-md border bg-white p-4 text-neutral-900">
         <EditorContent editor={editor} />
         <TableToolbar editor={editor} />
+        <SelectionToolbar editor={editor} />
         <MathEditorHost />
         <FootnoteEditorHost />
       </div>

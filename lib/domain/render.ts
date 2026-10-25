@@ -7,9 +7,10 @@ import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import { createHighlighter, type Highlighter } from "shiki";
 import { unified } from "unified";
-import { visit } from "unist-util-visit";
+import { SKIP, visit } from "unist-util-visit";
 import type { Element, ElementContent, Root, RootContent } from "hast";
 import { resolveBlueskyDids } from "./bluesky";
+import { remarkExtraSyntax } from "./extras";
 import { remarkObsidianSyntax } from "./obsidian";
 
 const HEADING_TAGS = new Set(["h2", "h3", "h4", "h5", "h6"]);
@@ -135,6 +136,44 @@ function wrapSections(root: Root): void {
   }
 
   root.children = result;
+}
+
+/**
+ * 목차 `[toc]`(extras.ts가 `div[data-toc]` 자리를 만든다)를 이 글의 제목들(h2~h6, 섹션 래핑이 단 id)로 채운다.
+ * 섹션 래핑 뒤에 돌아야 제목에 id가 있다. 제목이 없으면 자리를 지운다.
+ */
+function rehypeToc() {
+  return (tree: Root) => {
+    const headings: Array<{ level: number; id: string; text: string }> = [];
+    visit(tree, "element", (node: Element) => {
+      if (!HEADING_TAGS.has(node.tagName)) return;
+      const id = node.properties?.id;
+      // 각주 영역의 숨은 제목("Footnotes")은 글의 제목이 아니다.
+      if (typeof id === "string" && id !== "footnote-label") headings.push({ level: Number(node.tagName.slice(1)), id, text: textOf(node) });
+    });
+    visit(tree, "element", (node: Element, index, parent) => {
+      if (node.tagName !== "div" || (node.properties?.dataToc === undefined && node.properties?.["data-toc"] === undefined) || index === undefined || !parent) return;
+      if (headings.length === 0) {
+        parent.children.splice(index, 1);
+        return [SKIP, index];
+      }
+      const top = Math.min(...headings.map((heading) => heading.level));
+      node.children = [
+        { type: "element", tagName: "p", properties: { className: ["md-toc-title"] }, children: [{ type: "text", value: "목차" }] },
+        {
+          type: "element",
+          tagName: "ul",
+          properties: {},
+          children: headings.map((heading) => ({
+            type: "element",
+            tagName: "li",
+            properties: { style: `margin-left: ${(heading.level - top) * 1.1}em` },
+            children: [{ type: "element", tagName: "a", properties: { href: `#${heading.id}` }, children: [{ type: "text", value: heading.text }] }],
+          })),
+        },
+      ];
+    });
+  };
 }
 
 function rehypeSectionWrap() {
@@ -333,6 +372,7 @@ export async function renderPostHtml(contentMd: string, withSourceAttrs = false)
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkMath) // $인라인$, $$블록$$ 수식
+    .use(remarkExtraSyntax)
     .use(remarkObsidianSyntax, { blueskyDids })
     .use(remarkRehype);
 
@@ -345,6 +385,7 @@ export async function renderPostHtml(contentMd: string, withSourceAttrs = false)
     .use(rehypeSanitizeUrls)
     .use(rehypeImageResize)
     .use(rehypeSectionWrap)
+    .use(rehypeToc)
     .use(rehypeShikiHighlight)
     .use(rehypeStringify)
     .process(contentMd);
