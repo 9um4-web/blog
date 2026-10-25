@@ -600,3 +600,15 @@ body {
   text-align: center;
   color: rgb(120 120 120);
 }
+
+/* ---------- 수식 그래프(plot) ---------- */
+
+.post-body figure.plot {
+  margin-block: 1.5em;
+  overflow-x: auto;
+  text-align: center;
+}
+.post-body figure.plot svg {
+  display: block;
+  margin-inline: auto;
+}

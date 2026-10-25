@@ -11,6 +11,8 @@ import { SKIP, visit } from "unist-util-visit";
 import type { Element, ElementContent, Root, RootContent } from "hast";
 import { resolveBlueskyDids } from "./bluesky";
 import { parseCodeMeta } from "@gogum4/editor-schema/codeMeta";
+import { isPlotLanguage, parsePlot } from "@gogum4/editor-schema/plot";
+import { plotToSvg } from "@gogum4/editor-schema/plotSvg";
 import { remarkExtraSyntax } from "./extras";
 import { remarkObsidianSyntax } from "./obsidian";
 
@@ -363,6 +365,31 @@ function rehypeShikiHighlight() {
   };
 }
 
+/**
+ * `plot` 코드 블록(수식 그래프)을 SVG 그림으로 바꾼다. 식은 `eval` 없이 에디터 패키지의 안전한 계산기로 계산하고, SVG 글자는 사용자 글을 모두 이스케이프해 만든다.
+ * 식이 틀리면 그대로 두어 일반 코드 블록으로 보인다(글을 잃지 않는다). 3D는 처음 시점의 정지 그림이다.
+ */
+function rehypePlotGraphs() {
+  return (tree: Root) => {
+    visit(tree, "element", (node: Element, index, parent) => {
+      if (node.tagName !== "pre" || index === undefined || !parent) return;
+      const code = node.children.find((c): c is Element => c.type === "element" && c.tagName === "code");
+      if (!code || !isPlotLanguage(codeLanguage(code))) return;
+      const parsed = parsePlot(textOf(code).replace(/\n$/, ""));
+      if (!parsed.ok) return;
+      const svg = plotToSvg(parsed.spec);
+      parent.children[index] = {
+        type: "element",
+        tagName: "figure",
+        properties: { className: ["plot"] },
+        // 우리가 만든 SVG라서 raw로 넣는다(rehypeStringify의 allowDangerousHtml이 이 노드만 통과시킨다 — 마크다운의 HTML은 remark-rehype가 이미 버렸다).
+        children: [{ type: "raw", value: svg } as unknown as ElementContent],
+      };
+      return SKIP;
+    });
+  };
+}
+
 /** `![설명](주소 "캡션")`: 문단에 이미지만 있고 title이 있으면 `<figure>`와 `<figcaption>`으로 바꾼다(title 속성은 캡션이 되어 없어진다). */
 function rehypeImageCaption() {
   return (tree: Root) => {
@@ -424,8 +451,9 @@ export async function renderPostHtml(contentMd: string, withSourceAttrs = false)
     .use(rehypeImageCaption)
     .use(rehypeSectionWrap)
     .use(rehypeToc)
+    .use(rehypePlotGraphs)
     .use(rehypeShikiHighlight)
-    .use(rehypeStringify)
+    .use(rehypeStringify, { allowDangerousHtml: true })
     .process(contentMd);
   return String(file);
 }
