@@ -22,6 +22,7 @@ interface PostOption {
 interface SeriesOption {
   id: number;
   name: string;
+  slug: string;
 }
 
 interface UnifiedEditorProps {

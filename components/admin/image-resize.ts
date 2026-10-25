@@ -13,6 +13,8 @@ export type ImageResizeHandler = (
   originalSrc: string,
   newSize: string,
   dimension: ResizeDimension,
+  /** 높이를 끌 때 지금 보이는 가로(px) — 가로가 없는 임베드에 함께 적는다. */
+  currentWidthPx?: number,
 ) => void;
 
 /** 높이 드래그 핸들을 붙일 임베드 (비율 고정·자동 높이 위젯은 제외) */
@@ -169,7 +171,7 @@ export function setupImageResizing(bodyEl: HTMLElement, onImageResize: ImageResi
           () => {
             const finalHeightPx = resizeTarget.getBoundingClientRect().height;
             // 높이는 % 단위 개념이 없으므로 항상 px 정수로 보고
-            onImageResize(lineNum, originalSrc, `${Math.round(finalHeightPx)}`, "height");
+            onImageResize(lineNum, originalSrc, `${Math.round(finalHeightPx)}`, "height", Math.round(resizeTarget.getBoundingClientRect().width));
           },
         );
       });

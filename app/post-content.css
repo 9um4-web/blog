@@ -26,13 +26,3 @@
   font-size: var(--post-h6-size);
   color: var(--muted-foreground, #737373);
 }
-
-/* 편집기의 컨테이너 디렉티브(directive-decoration.ts가 클래스를 붙인다) */
-.md-editor .md-directive.md-directive-indent {
-  border-left-color: #a3a3a3;
-}
-
-.md-editor .md-directive.md-directive-fold {
-  border-left-style: dashed;
-  border-left-color: #60a5fa;
-}

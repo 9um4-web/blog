@@ -13,6 +13,7 @@ interface PostOption {
 interface SeriesOption {
   id: number;
   name: string;
+  slug: string;
 }
 
 interface ImageOption {
@@ -23,11 +24,10 @@ interface ImageOption {
 }
 
 interface DirectiveMatch {
-  kind: "post" | "series" | "colon" | "slash" | "image";
+  kind: "post" | "series" | "slash" | "image";
   query: string;
   start: number;
   end: number;
-  colonCount?: number;
   altText?: string;
 }
 
@@ -47,32 +47,27 @@ interface SuggestionOption {
   moveCursorOffset?: number;
 }
 
-const CONTAINER_DIRECTIVES: SuggestionOption[] = [
-  { key: "note", label: ":::note", sub: "노트 콜아웃", value: ":::note\n\n:::", moveCursorOffset: 8 },
-  { key: "info", label: ":::info", sub: "정보 콜아웃", value: ":::info\n\n:::", moveCursorOffset: 8 },
-  { key: "tip", label: ":::tip", sub: "팁 콜아웃", value: ":::tip\n\n:::", moveCursorOffset: 7 },
-  { key: "warning", label: ":::warning", sub: "주의 콜아웃", value: ":::warning\n\n:::", moveCursorOffset: 11 },
-  { key: "danger", label: ":::danger", sub: "위험 콜아웃", value: ":::danger\n\n:::", moveCursorOffset: 10 },
-  { key: "center", label: ":::center", sub: "가운데 정렬", value: ":::center\n\n:::", moveCursorOffset: 10 },
-  { key: "right", label: ":::right", sub: "오른쪽 정렬", value: ":::right\n\n:::", moveCursorOffset: 9 },
-  { key: "indent", label: ":::indent", sub: "들여쓰기 블록 (n=1~8)", value: ":::indent{n=1}\n\n:::", moveCursorOffset: 14 },
-  { key: "fold", label: ":::fold", sub: "접기 영역 지정 (h=2~6)", value: ":::fold{h=2}\n\n:::", moveCursorOffset: 12 },
+const CALLOUTS: SuggestionOption[] = [
+  { key: "note", label: "> [!NOTE]", sub: "노트 콜아웃", value: "> [!NOTE]\n> " },
+  { key: "tip", label: "> [!TIP]", sub: "팁 콜아웃", value: "> [!TIP]\n> " },
+  { key: "important", label: "> [!IMPORTANT]", sub: "중요 콜아웃", value: "> [!IMPORTANT]\n> " },
+  { key: "warning", label: "> [!WARNING]", sub: "경고 콜아웃", value: "> [!WARNING]\n> " },
+  { key: "caution", label: "> [!CAUTION]", sub: "주의 콜아웃", value: "> [!CAUTION]\n> " },
+  { key: "info", label: "> [!info]", sub: "정보 콜아웃", value: "> [!info]\n> " },
+  { key: "danger", label: "> [!danger]", sub: "위험 콜아웃", value: "> [!danger]\n> " },
+  { key: "callout", label: "> [!이름]", sub: "이름을 직접 정하는 콜아웃 (예: rocket)", value: "> [!이름] 제목\n> ", moveCursorOffset: 5 },
 ];
 
-const LEAF_DIRECTIVES: SuggestionOption[] = [
-  { key: "post", label: "::post", sub: "글 카드 임베드", value: "::post{slug=}", moveCursorOffset: 13 },
-  { key: "series", label: "::series", sub: "시리즈 카드 임베드", value: "::series{id=}", moveCursorOffset: 13 },
-  { key: "youtube", label: "::youtube", sub: "유튜브 영상 임베드", value: "::youtube[]", moveCursorOffset: 10 },
-  { key: "x", label: "::x", sub: "X (Twitter) 게시물 임베드", value: "::x[]", moveCursorOffset: 4 },
-  { key: "soundcloud", label: "::soundcloud", sub: "SoundCloud 트랙/재생목록 임베드", value: "::soundcloud[]", moveCursorOffset: 13 },
-  { key: "instagram", label: "::instagram", sub: "Instagram 게시물 임베드", value: "::instagram[]", moveCursorOffset: 12 },
-  { key: "pinterest", label: "::pinterest", sub: "Pinterest 핀 임베드", value: "::pinterest[]", moveCursorOffset: 12 },
-  { key: "bluesky", label: "::bluesky", sub: "Bluesky 게시물 임베드", value: "::bluesky[]", moveCursorOffset: 10 },
-  { key: "video", label: "::video", sub: "동영상 파일 임베드", value: "::video[]", moveCursorOffset: 8 },
-];
-
-const TEXT_DIRECTIVES: SuggestionOption[] = [
-  { key: "postlink", label: ":postlink", sub: "인라인 글 링크", value: ":postlink[텍스트]{slug=}", moveCursorOffset: 10 },
+const BLOCK_SYNTAX: SuggestionOption[] = [
+  { key: "center", label: "가운데 정렬", sub: '<div align="center"> … </div>', value: '<div align="center">\n\n\n\n</div>', moveCursorOffset: 24 },
+  { key: "right", label: "오른쪽 정렬", sub: '<div align="right"> … </div>', value: '<div align="right">\n\n\n\n</div>', moveCursorOffset: 23 },
+  { key: "indent", label: "들여쓰기", sub: "&emsp; 두 개가 한 단계 (문단·제목 맨 앞)", value: "&emsp;&emsp;" },
+  { key: "fold", label: "접기 영역 지정", sub: '<div data-fold="2"> … </div> (h=2~6, none)', value: '<div data-fold="2">\n\n\n\n</div>', moveCursorOffset: 22 },
+  { key: "embed", label: "임베드", sub: "![](주소) 유튜브·X·Instagram·Pinterest·SoundCloud (![|500x300](…)로 크기)", value: "![]()", moveCursorOffset: 4 },
+  { key: "video", label: "비디오 파일", sub: "![](영상.mp4)", value: "![]()", moveCursorOffset: 4 },
+  { key: "post", label: "글 카드 임베드", sub: "![[슬러그]]", value: "![[]]", moveCursorOffset: 3 },
+  { key: "series", label: "시리즈 카드 임베드", sub: "![[series/슬러그]]", value: "![[series/]]", moveCursorOffset: 11 },
+  { key: "postlink", label: "글 링크", sub: "[[슬러그|표시할 텍스트]]", value: "[[]]", moveCursorOffset: 2 },
 ];
 
 const GENERAL_MARKDOWN_SUGGESTIONS: SuggestionOption[] = [
@@ -88,44 +83,33 @@ const GENERAL_MARKDOWN_SUGGESTIONS: SuggestionOption[] = [
   { key: "hr", label: "Horizontal Rule", sub: "--- 구분선", value: "---", moveCursorOffset: 3 },
   { key: "inline-math", label: "Inline Math", sub: "$수식$", value: "$ $", moveCursorOffset: 2 },
   { key: "block-math", label: "Block Math", sub: "$$블록 수식$$", value: "$$\n\n$$", moveCursorOffset: 3 },
-  ...CONTAINER_DIRECTIVES,
-  ...LEAF_DIRECTIVES,
-  ...TEXT_DIRECTIVES,
+  ...CALLOUTS,
+  ...BLOCK_SYNTAX,
 ];
 
 /**
- * ::post{slug=...} / :postlink[...]{slug=...} / ::series{id=...} / 콜론(:) / 슬래시(/) 를 타이핑하는 중일 때
+ * `![[슬러그` / `[[슬러그` / `![[series/슬러그` / 슬래시(/) / 이미지 주소를 타이핑하는 중일 때
  * 커서 위치에 후보 목록을 띄운다.
  */
 function detectDirectiveContext(text: string, cursor: number): DirectiveMatch | null {
   const windowStart = Math.max(0, cursor - 300);
   const before = text.slice(windowStart, cursor);
 
-  // 1. 글 임베드/링크 슬러그 자동완성 (최우선)
-  const postMatch = /(?:::post|:postlink\[[^\]\n]*\])\{slug=([a-z0-9-]*)$/.exec(before);
-  if (postMatch) {
-    const query = postMatch[1];
-    return { kind: "post", query, start: cursor - query.length, end: cursor };
-  }
-
-  // 2. 시리즈 임베드 ID 자동완성 (최우선)
-  const seriesMatch = /::series\{id=([0-9]*)$/.exec(before);
+  // 1. 시리즈 임베드 슬러그 자동완성 (최우선)
+  const seriesMatch = /!\[\[series\/([a-z0-9-]*)$/.exec(before);
   if (seriesMatch) {
     const query = seriesMatch[1];
     return { kind: "series", query, start: cursor - query.length, end: cursor };
   }
 
-  // 3. 콜론(:) 기반 직접 자동완성
-  const colonMatch = /(?:\n|^|\s)(:{1,3})([a-zA-Z0-9-]*)$/.exec(before);
-  if (colonMatch) {
-    const colons = colonMatch[1];
-    const query = colonMatch[2];
-    const prefixLen = colonMatch[0].length - colons.length - query.length;
-    const start = windowStart + colonMatch.index + prefixLen;
-    return { kind: "colon", query, start, end: cursor, colonCount: colons.length };
+  // 2. 글 임베드/링크 슬러그 자동완성
+  const postMatch = /!?\[\[([a-z0-9-]*)$/.exec(before);
+  if (postMatch) {
+    const query = postMatch[1];
+    return { kind: "post", query, start: cursor - query.length, end: cursor };
   }
 
-  // 4. 슬래시(/) 슬래시 커맨드 자동완성
+  // 3. 슬래시(/) 슬래시 커맨드 자동완성
   const slashMatch = /(?:\n|^|\s)(\/)([a-zA-Z0-9-]*)$/.exec(before);
   if (slashMatch) {
     const slash = slashMatch[1];
@@ -135,7 +119,7 @@ function detectDirectiveContext(text: string, cursor: number): DirectiveMatch | 
     return { kind: "slash", query, start, end: cursor };
   }
 
-  // 5. 이미지 마크다운 URL 자동완성
+  // 4. 이미지 마크다운 URL 자동완성
   // ! [ alt ] ( query
   const imageMatch = /!\[([^\]\n]*)\]\(([^)\n]*)$/.exec(before);
   if (imageMatch) {
@@ -157,7 +141,8 @@ function filterPosts(posts: PostOption[], query: string): PostOption[] {
 }
 
 function filterSeries(series: SeriesOption[], query: string): SeriesOption[] {
-  return series.filter((s) => String(s.id).startsWith(query)).slice(0, 8);
+  const q = query.toLowerCase();
+  return series.filter((s) => s.slug.includes(q) || s.name.toLowerCase().includes(q)).slice(0, 8);
 }
 
 function formatSize(bytes: number): string {
@@ -223,10 +208,10 @@ function computeOptions(
   }
   if (next.kind === "series") {
     return filterSeries(series, next.query).map((s) => ({
-      key: String(s.id),
+      key: s.slug,
       label: s.name,
-      sub: `#${s.id}`,
-      value: String(s.id),
+      sub: s.slug,
+      value: s.slug,
     }));
   }
   if (next.kind === "image") {
@@ -237,15 +222,6 @@ function computeOptions(
       value: `/images/${img.id}/${img.filename}`,
       thumbnail: `/images/${img.id}/${img.filename}`,
     }));
-  }
-  if (next.kind === "colon") {
-    const list =
-      next.colonCount === 3
-        ? CONTAINER_DIRECTIVES
-        : next.colonCount === 2
-        ? LEAF_DIRECTIVES
-        : TEXT_DIRECTIVES;
-    return filterSuggestions(list, next.query);
   }
   if (next.kind === "slash") {
     return filterSuggestions(GENERAL_MARKDOWN_SUGGESTIONS, next.query);
@@ -518,10 +494,15 @@ export function DirectiveAutocompleteTextarea({
   const applySelection = (item: OptionItem) => {
     const el = textareaRef.current;
     if (!el || !match) return;
-    const newValue = value.slice(0, match.start) + item.value + value.slice(match.end);
-    let newCursor = match.start + item.value.length;
+    // 글·시리즈 슬러그는 닫는 ]]까지 채운다(이미 있으면 그대로).
+    const closing = (match.kind === "post" || match.kind === "series") && !value.slice(match.end).startsWith("]]") ? "]]" : "";
+    const inserted = item.value + closing;
+    const newValue = value.slice(0, match.start) + inserted + value.slice(match.end);
+    let newCursor = match.start + inserted.length;
     if (item.moveCursorOffset !== undefined) {
       newCursor = match.start + item.moveCursorOffset;
+    } else if (closing === "" && (match.kind === "post" || match.kind === "series")) {
+      newCursor = match.start + inserted.length + 2;
     }
     onValueChange(newValue);
     setMatch(null);

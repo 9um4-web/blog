@@ -1,18 +1,20 @@
 "use client";
 
 // 관리자 본문 편집기의 WYSIWYG 모드. 원본은 항상 마크다운(`contentMd`)이고, 이 컴포넌트는 그것을 열어 고치고 마크다운으로 돌려준다.
-// 에디터는 @gogum4/editor-* 패키지다. 블로그 문법(`:::note` 등 remark-directive)은 패키지의 `dialect: "blog"`가 맡고,
-// 에디터가 구조를 모르는 문법(::youtube, ::post, :postlink 등)은 원문 그대로 보존된다 — 열기만 하고 고치지 않으면 본문은 바뀌지 않는다.
+// 에디터는 @gogum4/editor-* 패키지다. 문법은 Obsidian 호환(콜아웃 `> [!종류]`, 임베드 `![](주소)`, 글 카드 `![[슬러그]]`, 들여쓰기 `&emsp;`)이고,
+// 에디터가 구조를 모르는 것(이미지·HTML·열 정렬 표)은 회색 상자/칸의 **원문 그대로** 보존된다 — 열기만 하고 고치지 않으면 본문은 바뀌지 않는다.
 import "@gogum4/editor-react/styles.css";
 
-import { memoryPorts, type SlashItem } from "@gogum4/editor-core";
+import { memoryPorts, type ReferenceResolver } from "@gogum4/editor-core";
 import { createReactExtensions, EditorPortsProvider, FootnoteEditorHost, MathEditorHost, TableToolbar } from "@gogum4/editor-react";
-import { docToMarkdown, markdownToDoc, type ImportContext } from "@gogum4/editor-markdown";
-import { type Editor, EditorContent, useEditor } from "@tiptap/react";
+import { markdownToDoc } from "@gogum4/editor-markdown";
+import { EditorContent, useEditor } from "@tiptap/react";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from "react";
+import { createRoot } from "react-dom/client";
 
-import { DirectiveDecoration } from "./directive-decoration";
-import { EmbedPreview } from "./embed-preview-extension";
+import type { EmbedLine, PostEmbedPostCard, PostEmbedSeriesCard } from "@/lib/post-embeds";
+import { exportMarkdown, IMPORT_CONTEXT, parseBlogEmbedInput } from "@/lib/wysiwyg-markdown";
+import { EmbedCardBody, fetchEmbedCard } from "./embed-card-preview";
 
 export interface WysiwygEditorHandle {
   /** 커서 위치에 마크다운 조각을 끼운다(이미지 업로드 결과 등). */
@@ -28,28 +30,32 @@ interface WysiwygEditorProps {
 /** 입력이 멈춘 뒤 이만큼 기다렸다가 마크다운으로 내보낸다(글자마다 문서 전체를 변환하지 않게). */
 const EXPORT_DELAY_MS = 250;
 
-/** 에디터의 문서를 블로그 방언 마크다운으로. */
-function exportMarkdown(json: ReturnType<Editor["getJSON"]>): string {
-  return docToMarkdown(json, { pageTitle: () => null, dialect: "blog" }).markdown;
-}
-
-const IMPORT_CONTEXT: ImportContext = {
-  resolvePage: () => null,
-  resolveImage: () => null,
-  dialect: "blog",
-};
+/** 글·시리즈 카드(`reference` 노드)의 종류 이름. 마크다운에서는 `![[슬러그]]`, `![[series/슬러그]]`. */
+const REFERENCE_KINDS = ["post", "series"] as const;
 
 /** 블로그에 없는 기능의 `/` 항목은 뺀다(이미지는 업로드 버튼, 토글·양쪽 정렬은 블로그 문법에 없다). */
 const HIDDEN_SLASH_ITEMS = new Set(["image", "toggle", "alignJustify"]);
 
-const BLOG_SLASH_ITEMS: SlashItem[] = [
-  { id: "blog-youtube", label: "유튜브", description: "::youtube{id=영상ID}", keywords: ["youtube", "video", "유튜브", "영상"] },
-  { id: "blog-post", label: "포스트 카드", description: "::post{slug=…}", keywords: ["post", "card", "embed", "포스트", "글", "카드"] },
-  { id: "blog-series", label: "시리즈 카드", description: "::series{id=…}", keywords: ["series", "card", "embed", "시리즈"] },
-  { id: "blog-postlink", label: "포스트 링크", description: ":postlink[텍스트]{slug=…} (문장 안)", keywords: ["postlink", "link", "링크", "포스트"] },
-  { id: "blog-indent", label: "들여쓰기", description: ":::indent{n=1} … :::", keywords: ["indent", "들여쓰기"] },
-  { id: "blog-fold", label: "접기 소속 지정", description: ":::fold{h=2} … :::", keywords: ["fold", "섹션", "접기"] },
-];
+function referenceResolver(kind: EmbedLine["kind"]): ReferenceResolver {
+  return {
+    async resolve(id) {
+      const card = await fetchEmbedCard({ kind, slug: id });
+      if (card === null) return null;
+      return kind === "post"
+        ? { title: (card as PostEmbedPostCard).title, description: (card as PostEmbedPostCard).summary, preview: card }
+        : { title: (card as PostEmbedSeriesCard).name, description: (card as PostEmbedSeriesCard).description ?? undefined, preview: card };
+    },
+    open(id) {
+      window.open(kind === "post" ? `/${id}` : `/series/${id}`, "_blank", "noopener,noreferrer");
+    },
+    renderPreview(info, container) {
+      const root = createRoot(container);
+      root.render(<EmbedCardBody kind={kind} card={info.preview as PostEmbedPostCard | PostEmbedSeriesCard} />);
+      // 렌더 도중에 unmount하면 React가 경고하므로 한 박자 늦춘다.
+      return () => queueMicrotask(() => root.unmount());
+    },
+  };
+}
 
 export const WysiwygEditor = forwardRef<WysiwygEditorHandle, WysiwygEditorProps>(function WysiwygEditor({ initialMarkdown, onContentChange }, ref) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -68,6 +74,8 @@ export const WysiwygEditor = forwardRef<WysiwygEditorHandle, WysiwygEditorProps>
             window.open(url, "_blank", "noopener,noreferrer");
           },
         },
+        references: Object.fromEntries(REFERENCE_KINDS.map((kind) => [kind, referenceResolver(kind)])),
+        parseEmbedInput: (input) => parseBlogEmbedInput(input, window.location.origin),
       }),
     [],
   );
@@ -77,20 +85,15 @@ export const WysiwygEditor = forwardRef<WysiwygEditorHandle, WysiwygEditorProps>
       createReactExtensions(null, {
         ports,
         raw: true,
+        reference: true,
+        embed: true,
+        indent: true,
         // 열자마자 문서 정리를 끝낸다(원문 상자·인라인 원자 노드를 처음 누를 때의 선택 오류 방지). 변경 여부는 내보낸 마크다운을 기준과 비교해 가린다.
         settle: true,
         markdown: IMPORT_CONTEXT,
         // 이미지는 블로그 업로드(`![](/img/…)`)로만 넣고 에디터의 이미지 노드(앱 저장소 해시)는 쓰지 않는다. 토글도 블로그 문법에 없다.
-        transform: (list) => [...list.filter((extension) => extension.name !== "image" && extension.name !== "toggle"), DirectiveDecoration, EmbedPreview],
-        slashItems: (core) => [...core.filter((item) => !HIDDEN_SLASH_ITEMS.has(item.id)), ...BLOG_SLASH_ITEMS],
-        slashHandlers: {
-          "blog-youtube": (_editor, chain) => chain.insertContent({ type: "raw", attrs: { text: "::youtube{id=}" } }).run(),
-          "blog-post": (_editor, chain) => chain.insertContent({ type: "raw", attrs: { text: "::post{slug=}" } }).run(),
-          "blog-series": (_editor, chain) => chain.insertContent({ type: "raw", attrs: { text: "::series{id=}" } }).run(),
-          "blog-postlink": (_editor, chain) => chain.insertContent({ type: "rawInline", attrs: { text: ":postlink[텍스트]{slug=}" } }).run(),
-          "blog-indent": (_editor, chain) => chain.insertContent({ type: "directive", attrs: { head: ":::indent{n=1}" }, content: [{ type: "paragraph" }] }).run(),
-          "blog-fold": (_editor, chain) => chain.insertContent({ type: "directive", attrs: { head: ":::fold{h=2}" }, content: [{ type: "paragraph" }] }).run(),
-        },
+        transform: (list) => list.filter((extension) => extension.name !== "image" && extension.name !== "toggle"),
+        slashItems: (core) => core.filter((item) => !HIDDEN_SLASH_ITEMS.has(item.id)),
       }),
     [ports],
   );

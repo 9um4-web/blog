@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { savePost } from "@/lib/actions/posts";
 import { setPostTags } from "@/lib/actions/tags";
 import { syncPostSeries } from "@/lib/actions/series";
+import { EMBED_LINE, EMBED_MAX_PX, EMBED_MIN_PX, isEmbedUrl, isRatioEmbedUrl } from "@/lib/domain/embed-line";
 import { buildTagTree, type TagTreeNode } from "@/lib/domain/tag-tree";
 import { usePostPreview } from "@/components/admin/use-post-preview";
 import { DirectiveAutocompleteTextarea } from "@/components/admin/directive-autocomplete-textarea";
@@ -62,8 +63,8 @@ interface PostEditorProps {
     parsedAt: Date | null;
   } | null;
   tags: TagData[];
-  seriesList: { id: number; name: string }[];
-  /** ::post{slug=...} / :postlink{slug=...} 자동완성용 전체 포스트 목록 */
+  seriesList: { id: number; name: string; slug: string }[];
+  /** ![[슬러그]] / [[슬러그]] 자동완성용 전체 포스트 목록 */
   allPosts: { title: string; slug: string }[];
   images: { id: number; filename: string; size: number; mimeType: string }[];
   initialTagIds: number[];
@@ -205,6 +206,7 @@ export function PostEditor({
       originalSrc: string,
       newSize: string,
       dimension: "width" | "height" = "width",
+      currentWidthPx?: number,
     ) => {
       const newWidth = newSize;
       const lines = contentMd.split("\n");
@@ -213,64 +215,25 @@ export function PostEditor({
 
       let newLineText = targetLine;
 
-      // 1. 디렉티브 리사이즈 처리 (::youtube, ::x, ::soundcloud 등)
-      if (targetLine.trim().startsWith("::")) {
-        const directiveRegex = /^(\s*)::(youtube|x|soundcloud|instagram|pinterest|bluesky|video)(?:\[(.*?)\])?(?:\{(.*?)\})?$/i;
-        const match = directiveRegex.exec(targetLine);
-
-        if (match) {
-          const indent = match[1];
-          const name = match[2];
-          const label = match[3];
-          const attrsStr = match[4];
-
-          // 속성 파싱
-          const attrs: Record<string, string> = {};
-          if (attrsStr) {
-            const attrRegex = /([a-zA-Z0-9_-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s,}]+))/g;
-            let attrMatch;
-            while ((attrMatch = attrRegex.exec(attrsStr)) !== null) {
-              const key = attrMatch[1];
-              const val = attrMatch[2] || attrMatch[3] || attrMatch[4];
-              attrs[key] = val;
-            }
-          }
-
-          if (dimension === "height") {
-            // 높이 드래그 → h/height 속성 갱신
-            if ("height" in attrs) {
-              attrs.height = newSize;
-            } else {
-              attrs.h = newSize;
-            }
-          } else {
-            // 비율 유지를 위해 유튜브/비디오는 기존 높이 속성 제거 (사운드클라우드 등 다른 임베드는 높이 영구 유지)
-            const preserveRatioWidgets = ["youtube", "video"];
-            if (preserveRatioWidgets.includes(name.toLowerCase())) {
-              delete attrs.h;
-              delete attrs.height;
-            }
-
-            // 너비 업데이트
-            if ("width" in attrs) {
-              attrs.width = newWidth;
-            } else {
-              attrs.w = newWidth;
-            }
-          }
-
-          // 속성을 다시 문자열로 직렬화
-          const pairs = Object.entries(attrs).map(([k, v]) => {
-            if (/[\s,"'{}]/.test(v)) {
-              return `${k}="${v.replace(/"/g, '\\"')}"`;
-            }
-            return `${k}=${v}`;
-          });
-          const newAttrsStr = pairs.length > 0 ? `{${pairs.join(" ")}}` : "";
-          const labelStr = label !== undefined ? `[${label}]` : "";
-
-          newLineText = `${indent}::${name}${labelStr}${newAttrsStr}`;
+      // 1. 임베드 한 줄(`![|500x300](주소)`) 리사이즈: 크기는 alt의 `|가로x세로`(px, 100~2000)로 적는다
+      const embedLine = EMBED_LINE.exec(targetLine);
+      if (embedLine !== null && isEmbedUrl(embedLine[3])) {
+        const [, indent, alt, url] = embedLine;
+        const size = /^\s*\|\s*(\d+)(?:x(\d+))?\s*$/.exec(alt);
+        if (alt.trim() !== "" && size === null) return;
+        const clamp = (value: number) => Math.min(Math.max(Math.round(value), EMBED_MIN_PX), EMBED_MAX_PX);
+        let width = size ? Number(size[1]) : null;
+        let height = size?.[2] !== undefined ? Number(size[2]) : null;
+        if (dimension === "height") {
+          // 높이만 끌면 가로가 없으므로, 지금 보이는 가로를 함께 적는다
+          height = clamp(Number(newSize));
+          width ??= clamp(currentWidthPx ?? 640);
+        } else {
+          width = clamp(Number(newWidth));
+          // 비율을 유지해야 하는 영상(유튜브·비디오 파일)은 높이를 지운다 (SoundCloud 등은 높이를 유지)
+          if (isRatioEmbedUrl(url)) height = null;
         }
+        newLineText = `${indent}![|${width}${height !== null ? `x${height}` : ""}](${url})`;
       } else {
         // 2. 이미지 마크다운 리사이즈 처리 (기존 로직) — 이미지는 너비만 지원
         if (dimension === "height") return;
@@ -476,18 +439,16 @@ export function PostEditor({
           </div>
         )}
         <p className="text-xs text-muted-foreground">
-          확장 문법: <code>```mermaid</code> · <code>::youtube[영상ID]</code> ·{" "}
-          <code>::post{"{slug=my-post}"}</code> · <code>::series{"{id=1}"}</code> ·{" "}
-          <code>:postlink[표시할 텍스트]{"{slug=my-post}"}</code>(문장 안에 다른 글로
-          가는 링크, 텍스트는 자유롭게) · <code>:::note[제목]</code>…<code>:::</code>{" "}
-          콜아웃(note/info/tip/warning/danger) · <code>$수식$</code>/
-          <code>$$블록수식$$</code> · <code>[^1]</code> 각주(본문 아무 곳에{" "}
-          <code>[^1]: 각주 내용</code>을 따로 적어두면 문서 끝에 모임) ·{" "}
-          <code>:::center</code>·<code>:::right</code> 정렬 ·{" "}
-          <code>:::indent{"{n=2}"}</code> 들여쓰기 · <code>:::fold{"{h=2}"}</code>{" "}
-          섹션 소속 지정(<code>h=none</code>이면 안 접힘) ·{" "}
-          이미지 크기 조절(<code>![설명](/url?w=300 또는 ?w=50% 또는 ?width=300&height=200)</code>).{" "}
-          <code>:::</code> 컨테이너는 반드시 닫는 <code>:::</code>가 있어야 합니다.
+          확장 문법(Obsidian 호환): <code>```mermaid</code> ·{" "}
+          <code>![](유튜브·X·Instagram·Pinterest·SoundCloud 주소)</code> 임베드(<code>![|500x300](주소)</code>로 크기,{" "}
+          <code>.mp4</code> 주소는 비디오) · <code>![[my-post]]</code> 글 카드 · <code>![[series/my-series]]</code> 시리즈 카드 ·{" "}
+          <code>[[my-post|표시할 텍스트]]</code>(문장 안에서 다른 글로 가는 링크) ·{" "}
+          <code>{"> [!note] 제목"}</code> 콜아웃(<code>[!tip]</code>·<code>[!warning]</code>·<code>[!rocket]</code> …, 이름은 자유) ·{" "}
+          <code>$수식$</code>/<code>$$블록수식$$</code> · <code>[^1]</code> 각주(본문 아무 곳에 <code>[^1]: 각주 내용</code>을 따로 적어두면 문서 끝에 모임) ·{" "}
+          <code>{'<div align="center">'}</code>…<code>{"</div>"}</code> 정렬(위아래 빈 줄) ·{" "}
+          <code>&amp;emsp;&amp;emsp;</code> 문단·제목 들여쓰기(두 개가 한 단계) ·{" "}
+          <code>{'<div data-fold="2">'}</code>…<code>{"</div>"}</code> 섹션 소속 지정(<code>none</code>이면 안 접힘) ·{" "}
+          이미지 크기 조절(<code>![설명](/url?w=300 또는 ?w=50% 또는 ?width=300&height=200)</code>).
         </p>
       </div>
 
