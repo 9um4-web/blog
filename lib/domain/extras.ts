@@ -37,14 +37,16 @@ export const BLOG_EXTRAS: ExtraSyntax = {
   definitions: true,
   toc: true,
   emoji: true,
+  kbd: true,
+  taskStatus: true,
 };
 
 type Node = { type: string; children?: Node[]; value?: string; data?: Record<string, unknown>; [key: string]: unknown };
 
 const PHRASING_CONTAINERS = new Set(["paragraph", "heading", "emphasis", "strong", "delete", "link", "tableCell", "extraMark"]);
-const HTML_MARK = /^<(mark|sup|sub|ins|abbr|span)(\s[^>]*)?>$/i;
-const HTML_CLOSE = /^<\/(mark|sup|sub|ins|abbr|span)>$/i;
-const TAG_ELEMENT: Record<string, string> = { mark: "mark", sup: "sup", sub: "sub", ins: "ins", abbr: "abbr", span: "span" };
+const HTML_MARK = /^<(mark|sup|sub|ins|abbr|span|kbd)(\s[^>]*)?>$/i;
+const HTML_CLOSE = /^<\/(mark|sup|sub|ins|abbr|span|kbd)>$/i;
+const TAG_ELEMENT: Record<string, string> = { mark: "mark", sup: "sup", sub: "sub", ins: "ins", abbr: "abbr", span: "span", kbd: "kbd" };
 
 const text = (value: string): Node => ({ type: "text", value });
 
@@ -239,9 +241,28 @@ function toDefinitionList(paragraph: Node): Node | null {
   return { type: "definitionList", children: content, data: { hName: "dl", hProperties: { className: ["md-dl"] } } };
 }
 
+/** 할 일 상태 표시(`[/] 글`)와 상태 이름. GFM의 `[ ]`·`[x]`는 remark-gfm이 이미 읽는다. */
+const TASK_STATUS: Readonly<Record<string, string>> = { "/": "progress", "-": "cancelled", ">": "deferred", "?": "question", "!": "important" };
+
+/** 목록 항목의 첫 문단이 `[/] `처럼 시작하면 표시를 떼고 상태를 항목에 단다(`data-task-status`)와 글자 칩을 앞에 둔다. */
+function applyTaskStatus(item: Node): void {
+  if (item.checked !== null && item.checked !== undefined) return;
+  const paragraph = item.children?.[0];
+  const first = paragraph?.type === "paragraph" ? paragraph.children?.[0] : undefined;
+  if (!paragraph || first?.type !== "text" || typeof first.value !== "string") return;
+  const match = /^\[(.)\] /.exec(first.value);
+  const name = match ? TASK_STATUS[match[1]!] : undefined;
+  if (!match || name === undefined) return;
+  first.value = first.value.slice(match[0].length);
+  const chip: Node = { type: "extraMark", children: [text(match[1]!)], data: { hName: "span", hProperties: { className: ["md-task-status"], "data-status": name, ariaLabel: name } } };
+  paragraph.children = [chip, text(" "), ...(paragraph.children ?? [])];
+  item.data = { ...(item.data ?? {}), hProperties: { className: ["md-task-item"], "data-task-status": name } };
+}
+
 function transform(parent: Node, ctx: Context): void {
   const children = parent.children;
   if (!children) return;
+  if (parent.type === "listItem") applyTaskStatus(parent);
 
   // 블록: 목차 [toc]와 정의 목록은 문단 하나가 통째로 그것일 때만이다.
   for (let i = 0; i < children.length; i++) {

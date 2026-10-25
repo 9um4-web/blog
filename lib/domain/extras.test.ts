@@ -114,3 +114,42 @@ describe("heading_tree는 추가 문법을 포함한 제목 글자로 만든다"
     expect(tree[0]!.text).toBe("핵심 요약 😄");
   });
 });
+
+describe("에디터 0.5 문법", () => {
+  it("<kbd>는 키 표시", async () => {
+    expect(await html("누르기 <kbd>Ctrl</kbd>+<kbd>C</kbd>")).toContain("<kbd>Ctrl</kbd>+<kbd>C</kbd>");
+  });
+
+  it("할 일 상태 [/] [-] [>] [?] [!]", async () => {
+    const out = await html("- [ ] 일반\n- [/] 진행 중\n- [-] 취소\n- 그냥 [/] 글\n");
+    expect(out).toContain('data-task-status="progress"');
+    expect(out).toContain('data-task-status="cancelled"');
+    expect(out).toContain('data-status="progress"');
+    expect(out).toContain("진행 중");
+    expect(out).not.toContain("[/] 진행 중");
+    expect(out).toContain("그냥 [/] 글");
+    expect(out.match(/data-task-status/g)).toHaveLength(2);
+  });
+
+  it("코드 블록 메타: 파일명 줄·강조 줄·줄 번호", async () => {
+    const out = await html('```ts title="a.ts" {2} showLineNumbers\nconst a = 1;\nconst b = 2;\n```');
+    expect(out).toContain('<figcaption class="code-title">a.ts</figcaption>');
+    expect(out).toContain("data-line-numbers");
+    expect(out).toMatch(/class="line highlighted"/);
+    expect(out.match(/class="line highlighted"/g)).toHaveLength(1);
+  });
+
+  it("메타가 없는 코드 블록은 예전과 같다", async () => {
+    const out = await html("```ts\nconst a = 1;\n```");
+    expect(out).not.toContain("code-figure");
+    expect(out).not.toContain("data-line-numbers");
+  });
+
+  it("이미지 캡션", async () => {
+    const out = await html('![그림](/img/1.png "첫 번째 그림")');
+    expect(out).toContain('<figure class="image-figure">');
+    expect(out).toContain("<figcaption>첫 번째 그림</figcaption>");
+    expect(out).not.toContain('title="');
+    expect(await html("![그림](/img/1.png)")).not.toContain("figcaption");
+  });
+});

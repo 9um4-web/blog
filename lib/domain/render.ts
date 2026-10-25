@@ -10,6 +10,7 @@ import { unified } from "unified";
 import { SKIP, visit } from "unist-util-visit";
 import type { Element, ElementContent, Root, RootContent } from "hast";
 import { resolveBlueskyDids } from "./bluesky";
+import { parseCodeMeta } from "@gogum4/editor-schema/codeMeta";
 import { remarkExtraSyntax } from "./extras";
 import { remarkObsidianSyntax } from "./obsidian";
 
@@ -337,15 +338,51 @@ function rehypeShikiHighlight() {
 
       const text = textOf(code).replace(/\n$/, "");
       // 듀얼 테마: 기본은 light 색, 다크모드는 CSS의 --shiki-dark 변수로 전환
+      // 펜스 뒤 글(`title="a.ts" {2,4} showLineNumbers`): 강조 줄·줄 번호·파일명 줄.
+      const meta = parseCodeMeta((code.data as { meta?: unknown } | undefined)?.meta);
+      const marked = new Set(meta.lines);
       const hast = highlighter.codeToHast(text, {
         lang,
         themes: { light: "github-light", dark: "github-dark" },
+        transformers: marked.size === 0 ? [] : [{ line(line, number) { if (marked.has(number)) this.addClassToHast(line, "highlighted"); } }],
       });
       const pre = hast.children[0];
       if (pre?.type === "element") {
-        parent.children[index] = pre;
+        if (meta.showLineNumbers) pre.properties = { ...pre.properties, "data-line-numbers": "" };
+        parent.children[index] =
+          meta.title === null
+            ? pre
+            : {
+                type: "element",
+                tagName: "figure",
+                properties: { className: ["code-figure"] },
+                children: [{ type: "element", tagName: "figcaption", properties: { className: ["code-title"] }, children: [{ type: "text", value: meta.title }] }, pre],
+              };
       }
     }
+  };
+}
+
+/** `![설명](주소 "캡션")`: 문단에 이미지만 있고 title이 있으면 `<figure>`와 `<figcaption>`으로 바꾼다(title 속성은 캡션이 되어 없어진다). */
+function rehypeImageCaption() {
+  return (tree: Root) => {
+    visit(tree, "element", (node: Element, index, parent) => {
+      if (node.tagName !== "p" || index === undefined || !parent) return;
+      const kids = node.children.filter((c) => !(c.type === "text" && c.value.trim() === ""));
+      const img = kids[0];
+      if (kids.length !== 1 || img?.type !== "element" || img.tagName !== "img") return;
+      const title = img.properties?.title;
+      if (typeof title !== "string" || title.trim() === "") return;
+      const { title: _title, ...rest } = img.properties;
+      void _title;
+      img.properties = rest;
+      parent.children[index] = {
+        type: "element",
+        tagName: "figure",
+        properties: { className: ["image-figure"] },
+        children: [img, { type: "element", tagName: "figcaption", properties: {}, children: [{ type: "text", value: title.trim() }] }],
+      };
+    });
   };
 }
 
@@ -384,6 +421,7 @@ export async function renderPostHtml(contentMd: string, withSourceAttrs = false)
     .use(rehypeKatex) // 수식을 KaTeX HTML로 변환 (수식 오류 시 빨간 원문 표시)
     .use(rehypeSanitizeUrls)
     .use(rehypeImageResize)
+    .use(rehypeImageCaption)
     .use(rehypeSectionWrap)
     .use(rehypeToc)
     .use(rehypeShikiHighlight)

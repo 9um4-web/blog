@@ -510,3 +510,93 @@ body {
 .image-resize-handle:hover::before {
   border-color: var(--primary-foreground);
 }
+/* ---------- 에디터 0.5 문법: 키보드 키·할 일 상태·코드 메타·이미지 캡션 ---------- */
+
+.post-body kbd {
+  padding: 0.1em 0.4em;
+  font-size: 0.85em;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  border: 1px solid rgb(0 0 0 / 0.18);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: rgb(0 0 0 / 0.04);
+  white-space: nowrap;
+}
+.dark .post-body kbd {
+  border-color: rgb(255 255 255 / 0.25);
+  background: rgb(255 255 255 / 0.06);
+}
+
+.post-body .md-task-item {
+  list-style: none;
+}
+.post-body .md-task-status {
+  display: inline-grid;
+  place-items: center;
+  width: 1.1em;
+  height: 1.1em;
+  margin-left: -1.4em;
+  font-size: 0.8em;
+  font-weight: 700;
+  line-height: 1;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  opacity: 0.75;
+}
+.post-body .md-task-item[data-task-status="cancelled"] {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.post-body .code-figure {
+  margin-block: 1.25em;
+}
+.post-body .code-figure > pre {
+  margin: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.post-body .code-title {
+  padding: 0.35em 1em;
+  font-size: 0.8125em;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  color: rgb(100 100 100);
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: rgb(0 0 0 / 0.04);
+}
+.dark .post-body .code-title {
+  color: rgb(170 170 170);
+  border-color: rgb(255 255 255 / 0.15);
+  background: rgb(255 255 255 / 0.06);
+}
+.post-body pre.shiki .line.highlighted {
+  display: inline-block;
+  width: 100%;
+  margin: 0 -1em;
+  padding: 0 1em;
+  background: rgb(120 120 120 / 0.18);
+}
+.post-body pre.shiki[data-line-numbers] code {
+  counter-reset: line;
+}
+.post-body pre.shiki[data-line-numbers] .line::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: 2em;
+  margin-right: 1em;
+  text-align: right;
+  color: rgb(140 140 140);
+}
+
+.post-body figure.image-figure {
+  margin-block: 1.5em;
+}
+.post-body figure.image-figure figcaption {
+  margin-top: 0.4em;
+  font-size: 0.875em;
+  text-align: center;
+  color: rgb(120 120 120);
+}
