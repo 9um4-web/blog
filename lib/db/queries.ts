@@ -477,8 +477,24 @@ export async function listSeriesByIds(ids: number[]) {
     .where(inArray(series.id, normalized));
 }
 
+export async function listSeriesBySlugs(slugs: string[]) {
+  const normalized = [...new Set(slugs.filter((slug) => slug.length > 0))];
+  if (normalized.length === 0) return [];
+
+  return db
+    .select({
+      id: series.id,
+      name: series.name,
+      slug: series.slug,
+      description: series.description,
+      isCompleted: series.isCompleted,
+    })
+    .from(series)
+    .where(inArray(series.slug, normalized));
+}
+
 /**
- * 임베드 카드(::series{id=...})용 시리즈-포스트 목록 일괄 조회 (fractional order 정렬).
+ * 임베드 카드(![[series/슬러그]])용 시리즈-포스트 목록 일괄 조회 (fractional order 정렬).
  * includeUnlisted=false(공개 포스트 본문에 렌더될 때)면 링크 전용 포스트는 카드에서 빠진다 —
  * 에디터 미리보기는 true로 호출.
  */

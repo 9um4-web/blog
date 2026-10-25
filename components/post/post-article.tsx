@@ -2,7 +2,7 @@ import "katex/dist/katex.min.css";
 import {
   getSiteSettings,
   listPublicPostCardsBySlugs,
-  listSeriesByIds,
+  listSeriesBySlugs,
   listSeriesOfPost,
   listSeriesPostsBySeriesIds,
   listTagsOfPost,
@@ -26,11 +26,14 @@ export async function PostArticle({ post }: { post: typeof posts.$inferSelect })
   ]);
   const embedParts = splitPostEmbedParts(html);
   const embedRequests = extractPostEmbedRequests(embedParts);
-  const [embedPostCards, embedSeriesRows, embedSeriesPosts] = await Promise.all([
+  const [embedPostCards, embedSeriesRows] = await Promise.all([
     listPublicPostCardsBySlugs(embedRequests.postSlugs),
-    listSeriesByIds(embedRequests.seriesIds),
-    listSeriesPostsBySeriesIds(embedRequests.seriesIds, false),
+    listSeriesBySlugs(embedRequests.seriesSlugs),
   ]);
+  const embedSeriesPosts = await listSeriesPostsBySeriesIds(
+    embedSeriesRows.map((series) => series.id),
+    false,
+  );
 
   const seriesPostsMap = new Map<number, { postId: number; title: string; slug: string }[]>();
   for (const row of embedSeriesPosts) {

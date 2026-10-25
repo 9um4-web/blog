@@ -7,7 +7,7 @@ import { posts, specialPages } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
 import {
   listPublicPostCardsBySlugs,
-  listSeriesByIds,
+  listSeriesBySlugs,
   listSeriesPostsBySeriesIds,
 } from "@/lib/db/queries";
 import { parseForSave, type HeadingNode } from "@/lib/domain/markdown";
@@ -29,13 +29,16 @@ import {
   type SlugValidation,
 } from "@/lib/domain/slug";
 
-/** 임베드 요청(slug/id)을 DB에서 읽어 카드 데이터로 만든다. 미리보기와 시각 편집기의 카드 미리보기가 함께 쓴다. */
-async function loadPostEmbedData(requests: { postSlugs: string[]; seriesIds: number[] }): Promise<PostEmbedData> {
-  const [postCards, seriesRows, seriesPostsRows] = await Promise.all([
+/** 임베드 요청(글·시리즈 slug)을 DB에서 읽어 카드 데이터로 만든다. 미리보기와 시각 편집기의 카드 미리보기가 함께 쓴다. */
+async function loadPostEmbedData(requests: { postSlugs: string[]; seriesSlugs: string[] }): Promise<PostEmbedData> {
+  const [postCards, seriesRows] = await Promise.all([
     listPublicPostCardsBySlugs(requests.postSlugs),
-    listSeriesByIds(requests.seriesIds),
-    listSeriesPostsBySeriesIds(requests.seriesIds, true),
+    listSeriesBySlugs(requests.seriesSlugs),
   ]);
+  const seriesPostsRows = await listSeriesPostsBySeriesIds(
+    seriesRows.map((series) => series.id),
+    true,
+  );
   const seriesPostsMap = new Map<number, { postId: number; title: string; slug: string | null }[]>();
   for (const row of seriesPostsRows) {
     const list = seriesPostsMap.get(row.seriesId);
@@ -56,16 +59,16 @@ async function loadPostEmbedData(requests: { postSlugs: string[]; seriesIds: num
   };
 }
 
-/** 시각 편집기의 `::post{slug=…}` / `::series{id=…}` 카드 미리보기용. 못 찾으면 null. */
+/** 시각 편집기의 `![[슬러그]]` / `![[series/슬러그]]` 카드 미리보기용. 못 찾으면 null. */
 export async function loadEmbedCard(
-  input: { kind: "post"; slug: string } | { kind: "series"; id: number },
+  input: { kind: "post"; slug: string } | { kind: "series"; slug: string },
 ): Promise<PostEmbedPostCard | PostEmbedSeriesCard | null> {
   await requireAdmin();
   if (input.kind === "post") {
-    const data = await loadPostEmbedData({ postSlugs: [input.slug], seriesIds: [] });
+    const data = await loadPostEmbedData({ postSlugs: [input.slug], seriesSlugs: [] });
     return data.postCards[0] ?? null;
   }
-  const data = await loadPostEmbedData({ postSlugs: [], seriesIds: [input.id] });
+  const data = await loadPostEmbedData({ postSlugs: [], seriesSlugs: [input.slug] });
   return data.seriesCards[0] ?? null;
 }
 

@@ -155,7 +155,7 @@ body {
   inset: 0;
 }
 
-/* ---------- 정렬/들여쓰기 (:::center, :::right, :::indent{n=2}) ---------- */
+/* ---------- 정렬 (<div align="center|right">) ---------- */
 
 .post-body .align-center {
   text-align: center;
@@ -174,7 +174,7 @@ body {
   margin-left: auto;
 }
 
-/* ---------- 콜아웃 (:::note ~ :::) ---------- */
+/* ---------- 콜아웃 (> [!종류] 제목) ---------- */
 
 .post-body .callout {
   border: 1px solid var(--callout-color, var(--border));
@@ -211,11 +211,16 @@ body {
   --callout-color: #f59e0b;
 }
 
-.post-body .callout-danger {
+.post-body .callout-danger,
+.post-body .callout-caution {
   --callout-color: #ef4444;
 }
 
-/* ---------- 임베드 카드 (::post, ::series) ---------- */
+.post-body .callout-important {
+  --callout-color: #8b5cf6;
+}
+
+/* ---------- 임베드 카드 (![[슬러그]], ![[series/슬러그]]) ---------- */
 
 .post-body .md-embed-card {
   margin-block: 1.25rem;
@@ -227,7 +232,7 @@ body {
   font-size: 0.9rem;
 }
 
-/* ---------- 포스트 인라인 링크 (:postlink[텍스트]{slug=...}) ---------- */
+/* ---------- 포스트 인라인 링크 ([[슬러그|텍스트]]) ---------- */
 
 .post-body .post-link {
   text-decoration-style: dotted;
