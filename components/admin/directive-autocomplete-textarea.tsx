@@ -68,6 +68,19 @@ const BLOCK_SYNTAX: SuggestionOption[] = [
   { key: "post", label: "글 카드 임베드", sub: "![[슬러그]]", value: "![[]]", moveCursorOffset: 3 },
   { key: "series", label: "시리즈 카드 임베드", sub: "![[series/슬러그]]", value: "![[series/]]", moveCursorOffset: 11 },
   { key: "postlink", label: "글 링크", sub: "[[슬러그|표시할 텍스트]]", value: "[[]]", moveCursorOffset: 2 },
+  // 추가 문법(lib/domain/extras.ts)
+  { key: "highlight", label: "하이라이트", sub: "==글==", value: "====", moveCursorOffset: 2 },
+  { key: "insert", label: "삽입", sub: "++글++ (추가된 글)", value: "++++", moveCursorOffset: 2 },
+  { key: "superscript", label: "위첨자", sub: "x^2^ 또는 <sup>", value: "<sup></sup>", moveCursorOffset: 5 },
+  { key: "subscript", label: "아래첨자", sub: "<sub>글</sub>", value: "<sub></sub>", moveCursorOffset: 5 },
+  { key: "textcolor", label: "글자색", sub: '<span style="color: #dc2626">', value: '<span style="color: #dc2626"></span>', moveCursorOffset: 29 },
+  { key: "bgcolor", label: "배경색", sub: '<span style="background-color: #fef08a">', value: '<span style="background-color: #fef08a"></span>', moveCursorOffset: 40 },
+  { key: "abbr", label: "약어", sub: '<abbr title="뜻">글</abbr>', value: '<abbr title=""></abbr>', moveCursorOffset: 13 },
+  { key: "comment", label: "주석", sub: "%%글%% (독자에게 안 보임)", value: "%%%%", moveCursorOffset: 2 },
+  { key: "citation", label: "인용", sub: "[@citekey]", value: "[@]", moveCursorOffset: 2 },
+  { key: "footnote-inline", label: "인라인 각주", sub: "^[각주 내용]", value: "^[]", moveCursorOffset: 2 },
+  { key: "toc", label: "목차", sub: "[toc]", value: "[toc]", moveCursorOffset: 5 },
+  { key: "dl", label: "정의 목록", sub: "용어 다음 줄 : 설명", value: "용어\n: 설명", moveCursorOffset: 2 },
 ];
 
 const GENERAL_MARKDOWN_SUGGESTIONS: SuggestionOption[] = [

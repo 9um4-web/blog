@@ -448,6 +448,10 @@ export function PostEditor({
           <code>{'<div align="center">'}</code>…<code>{"</div>"}</code> 정렬(위아래 빈 줄) ·{" "}
           <code>&amp;emsp;&amp;emsp;</code> 문단·제목 들여쓰기(두 개가 한 단계) ·{" "}
           <code>{'<div data-fold="2">'}</code>…<code>{"</div>"}</code> 섹션 소속 지정(<code>none</code>이면 안 접힘) ·{" "}
+          <code>==하이라이트==</code>·<code>x^2^</code>/<code>{"<sup>"}</code>·<code>{"<sub>"}</code>·<code>++삽입++</code>·
+          <code>{'<span style="color: #dc2626">'}</code>(글자색)·<code>{'<span style="background-color: #fef08a">'}</code>(배경색)·<code>{'<abbr title="뜻">'}</code>(약어) ·{" "}
+          <code>%%주석%%</code>(독자에게 안 보임) · <code>#태그</code> · <code>[@citekey]</code> 인용 · <code>^[인라인 각주]</code> ·{" "}
+          <code>[toc]</code> 목차 · 정의 목록(<code>용어</code> 다음 줄 <code>: 설명</code>) · <code>:smile:</code> 이모지 ·{" "}
           이미지 크기 조절(<code>![설명](/url?w=300 또는 ?w=50% 또는 ?width=300&height=200)</code>).
         </p>
       </div>

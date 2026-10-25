@@ -4,7 +4,8 @@ import { renderPostHtml } from "./domain/render";
 import { exportMarkdown, IMPORT_CONTEXT, parseBlogEmbedInput } from "./wysiwyg-markdown";
 
 const roundTrip = (md: string) => exportMarkdown(markdownToDoc(md, IMPORT_CONTEXT, "").doc);
-const normalize = (html: string) => html.replace(/data-sl="\d+" data-el="\d+"/g, "").replace(/\s+/g, " ");
+// 인라인 각주(`^[글]`)의 식별자(`inline-1`)는 편집기를 거치면 `[^1]`의 `1`이 되므로 같게 본다.
+const normalize = (html: string) => html.replace(/data-sl="\d+" data-el="\d+"/g, "").replace(/fn(ref)?-inline-/g, "fn$1-").replace(/\s+/g, " ");
 
 /** 새 문법으로 쓴 글을 시각 편집기가 열었다 내보내도 공개 페이지 모양이 같아야 한다 */
 const SAMPLE = [
@@ -92,5 +93,36 @@ describe("parseBlogEmbedInput", () => {
     expect(parseBlogEmbedInput("한글 제목", origin)).toBeNull();
     expect(parseBlogEmbedInput("", origin)).toBeNull();
     expect(parseBlogEmbedInput("https://blog.example.com/a/b", origin)).toBeNull();
+  });
+});
+
+describe("시각 편집기의 추가 문법 왕복 (0.4)", () => {
+  const EXTRA = [
+    "앞 ==강조== 와 x<sup>2</sup> H<sub>2</sub>O <ins>추가</ins> <span style=\"color: #dc2626\">빨강</span> <span style=\"background-color: #fef08a\">노랑</span>",
+    "<abbr title=\"Hyper Text Markup Language\">HTML</abbr> 문서 %%비공개 메모%% #할일/오늘 [@smith2020; @doe2021, p. 3] 글^[인라인 각주] 끝",
+    "[toc]",
+    "## 제목",
+    "용어\n: 첫 설명\n: 둘째 설명",
+    "색 글자 #fff 와 #ff00aa 는 태그가 아니다",
+  ].join("\n\n") + "\n";
+
+  it("열었다 내보내도 공개 페이지 모양이 같고 두 번째부터 글자까지 같다", async () => {
+    const once = roundTrip(EXTRA);
+    expect(normalize(await renderPostHtml(once))).toBe(normalize(await renderPostHtml(EXTRA)));
+    expect(roundTrip(once)).toBe(once);
+  });
+
+  it("추가 문법이 구조 노드·마크가 된다 (16진 색은 글자)", () => {
+    const json = JSON.stringify(markdownToDoc(EXTRA, IMPORT_CONTEXT, "").doc);
+    for (const expected of ['"highlight"', '"superscript"', '"subscript"', '"insert"', '"textColor"', '"backgroundColor"', '"abbr"', '"comment"', '"citation"', '"definitionList"', '"toc"', '"footnote"']) expect(json).toContain(expected);
+    expect(json).toContain('"tag"');
+    expect(json).not.toContain('"name":"fff"');
+    expect(json).not.toContain('"name":"ff00aa"');
+  });
+
+  it("공개 페이지: #fff는 태그가 아니고 #할일은 태그다", async () => {
+    const out = await renderPostHtml("#fff 와 #할일");
+    expect(out).toContain('data-tag="할일"');
+    expect(out).not.toContain('data-tag="fff"');
   });
 });

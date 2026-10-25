@@ -10,7 +10,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## 아키텍처
 
-- `lib/domain/` — 순수 도메인 로직 (Next 비의존, **전부 vitest 대상**). markdown.ts(heading_tree·발췌), render.ts(unified 파이프라인: gfm→math→Obsidian 문법(obsidian.ts)→rehype→katex→URL새니타이즈→섹션래핑→shiki→stringify), obsidian.ts(콜아웃·임베드·`![[…]]`·`[[…]]`·`&emsp;` 들여쓰기 remark 플러그인), html-wrappers.ts(`<div align>`·`<div data-fold>`), embeds.ts(임베드 hast)·bluesky.ts(Bluesky 핸들 → DID 해석), legacy-dialect.ts(옛 방언 → 새 문법 변환기, 일회성), slug.ts(동적 예약어), tag-closure.ts, ordering.ts(fractional key), image.ts
+- `lib/domain/` — 순수 도메인 로직 (Next 비의존, **전부 vitest 대상**). markdown.ts(heading_tree·발췌), render.ts(unified 파이프라인: gfm→math→Obsidian 문법(obsidian.ts)→rehype→katex→URL새니타이즈→섹션래핑→shiki→stringify), obsidian.ts(콜아웃·임베드·`![[…]]`·`[[…]]`·`&emsp;` 들여쓰기 remark 플러그인), html-wrappers.ts(`<div align>`·`<div data-fold>`), extras.ts(추가 문법 remark 플러그인: ==하이라이트==·첨자·삽입·색·약어·주석·태그·인용·정의 목록·`[toc]`·이모지·인라인 각주, `BLOG_EXTRAS`는 렌더러와 시각 편집기가 같이 쓴다)·embeds.ts(임베드 hast)·bluesky.ts(Bluesky 핸들 → DID 해석), legacy-dialect.ts(옛 방언 → 새 문법 변환기, 일회성), slug.ts(동적 예약어), tag-closure.ts, ordering.ts(fractional key), image.ts
 - `lib/nav-items.ts` — 헤더 메뉴 병합/토글/재배치 순수 로직 (아래 "헤더 메뉴" 참고)
 - `lib/post-embeds.ts` — 본문 내 포스트/시리즈 임베드 placeholder 파싱·치환 순수 로직 (아래 참고)
 - `lib/db/` — Drizzle 스키마·마이그레이션·조회(queries.ts). 이미지가 bytea로 DB에 저장됨

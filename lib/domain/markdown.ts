@@ -5,6 +5,7 @@ import remarkMath from "remark-math";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 import type { Root } from "mdast";
+import { remarkExtraSyntax } from "./extras";
 import { applyHtmlWrappers } from "./html-wrappers";
 
 /** heading_tree 노드 구조 (스펙 2장). 본문 최상위는 노드 배열(forest). */
@@ -17,7 +18,8 @@ export interface HeadingNode {
 
 export function parseMarkdown(contentMd: string): Root {
   // math를 함께 파싱해 $$ 원문이 문단 텍스트로 새지 않게 한다
-  const processor = unified().use(remarkParse).use(remarkGfm).use(remarkMath);
+  // 추가 문법(`==강조==` 등)을 같이 읽어야 제목 글자가 본문 앵커(render.ts)와 같다.
+  const processor = unified().use(remarkParse).use(remarkGfm).use(remarkMath).use(remarkExtraSyntax);
   return processor.runSync(processor.parse(contentMd)) as Root;
 }
 
