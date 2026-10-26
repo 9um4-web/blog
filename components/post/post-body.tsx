@@ -98,7 +98,7 @@ export function BodyParts({
             <div key={`post-${index}`} className="md-embed-card not-prose" {...sourceAttrs(part)}>
               <Link
                 href={`/${part.card.slug}`}
-                className="block rounded-lg border p-4 no-underline transition-colors hover:bg-accent/50"
+                className="group block rounded-lg border p-4 no-underline transition-colors hover:bg-accent/50"
               >
                 <PostCardContent title={part.card.title} summary={part.card.summary} />
               </Link>

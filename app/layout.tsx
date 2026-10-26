@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/theme-provider";
 import Link from "next/link";
 import { fontVariableClasses } from "@/app/fonts";
+import { HeaderNav } from "@/components/header-nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { SOCIAL_PLATFORMS } from "@/components/social-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -57,30 +58,38 @@ export default async function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
             <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-6 px-4">
-              <Link href="/" className="font-semibold">
+              <Link
+                href="/"
+                className="flex items-center gap-0.5 font-mono text-[15px] font-bold"
+              >
+                <span className="text-primary">~/</span>
                 {siteName}
+                <span
+                  aria-hidden="true"
+                  className="cursor-blink ml-1.5 inline-block h-4 w-2 bg-primary"
+                />
               </Link>
               {/* md 미만에서는 MobileNav의 드롭다운으로 대체 */}
-              <nav className="hidden items-center gap-4 text-sm text-muted-foreground md:flex">
-                {enabledNavItems.map((item) => (
-                  <Link key={item.id} href={item.href} className="hover:text-foreground">
-                    {item.label}
-                  </Link>
-                ))}
-              </nav>
+              <HeaderNav items={enabledNavItems} />
               <div className="ml-auto flex items-center gap-2">
                 <form action="/search" className="hidden md:block">
-                  <input
-                    type="search"
-                    name="q"
-                    placeholder="검색"
-                    className="h-8 w-36 rounded-md border bg-transparent px-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-                  />
+                  <label className="flex h-8 w-40 items-center gap-2 rounded-md border bg-card px-2.5 font-mono text-xs focus-within:ring-2 focus-within:ring-ring">
+                    <span aria-hidden="true" className="text-primary">
+                      $
+                    </span>
+                    <input
+                      type="search"
+                      name="q"
+                      aria-label="검색"
+                      placeholder="검색"
+                      className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+                    />
+                  </label>
                 </form>
                 <ThemeToggle />
                 <Link
                   href="/admin"
-                  className="hidden text-sm text-muted-foreground hover:text-foreground md:inline"
+                  className="hidden font-mono text-[13px] text-muted-foreground hover:text-foreground md:inline"
                 >
                   관리
                 </Link>
@@ -90,7 +99,7 @@ export default async function RootLayout({
           </header>
           <main className="flex-1 py-8">{children}</main>
           <footer className="border-t">
-            <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-4 py-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-4 py-5 font-mono text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
               <p className="flex items-center gap-3">
                 <span>
                   © {new Date().getFullYear()} {siteName}

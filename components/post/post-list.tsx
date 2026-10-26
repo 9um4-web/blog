@@ -16,13 +16,10 @@ export function PostList({ posts, timeZone }: { posts: PostListItem[]; timeZone:
     return <p className="text-sm text-muted-foreground">아직 포스트가 없습니다.</p>;
   }
   return (
-    <ul className="space-y-3">
+    <ul className="border-b">
       {posts.map((post) => (
-        <li key={post.id}>
-          <Link
-            href={`/${post.slug}`}
-            className="block rounded-lg border p-4 transition-colors hover:bg-accent/50"
-          >
+        <li key={post.id} className="border-t">
+          <Link href={`/${post.slug}`} className="group block py-6">
             <PostCardContent
               title={post.title}
               summary={post.summary}

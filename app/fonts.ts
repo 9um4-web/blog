@@ -1,4 +1,4 @@
-import { Geist, Geist_Mono, Nanum_Gothic, Noto_Sans_KR } from "next/font/google";
+import { Geist, JetBrains_Mono, Nanum_Gothic, Noto_Sans_KR } from "next/font/google";
 import localFont from "next/font/local";
 
 /**
@@ -12,8 +12,9 @@ export const geistSans = Geist({
   subsets: ["latin"],
 });
 
-export const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+/** 사이트 글꼴 선택과 무관하게 항상 쓰이는 모노스페이스(로고·메타 정보·코드) */
+export const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
 });
 
@@ -40,7 +41,7 @@ export const nanumGothic = Nanum_Gothic({
 /** html에 항상 붙이는 변수 클래스 묶음 */
 export const fontVariableClasses = [
   geistSans.variable,
-  geistMono.variable,
+  jetbrainsMono.variable,
   pretendard.variable,
   notoSansKr.variable,
   nanumGothic.variable,

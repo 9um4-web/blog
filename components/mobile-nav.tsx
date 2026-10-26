@@ -46,7 +46,7 @@ function MobileNavPanel({ items }: { items: NavLinkItem[] }) {
 
       {open && (
         <div className="absolute inset-x-0 top-full border-b bg-background shadow-sm">
-          <nav className="mx-auto flex w-full max-w-5xl flex-col gap-1 px-4 py-3 text-sm">
+          <nav className="mx-auto flex w-full max-w-5xl flex-col gap-1 px-4 py-3 font-mono text-[13px]">
             {items.map((item) => (
               <Link
                 key={item.id}

@@ -4,7 +4,6 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Comments } from "@/components/comments";
-import { Badge } from "@/components/ui/badge";
 import type { HeadingNode } from "@/lib/domain/markdown";
 import type { GiscusConfig } from "@/lib/db/queries";
 import type { HydratedPostBodyPart } from "@/lib/post-embeds";
@@ -125,27 +124,20 @@ export function PostView({
 
   return (
     <div className="mx-auto flex w-full max-w-5xl gap-8 px-4">
-      {headingTree.length > 0 && (
-        // 목차가 제목 상단부터 왼쪽 여백을 채운다
-        <aside className="hidden w-60 shrink-0 lg:block">
-          <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pt-1">
-            <Toc tree={headingTree} onNavigate={onTocNavigate} />
-          </div>
-        </aside>
-      )}
-
       <div className="min-w-0 flex-1 pb-24">
         {/* 제목 섹션: 제목 / (시리즈 · 마지막 수정일) */}
         <header className="mb-8">
-          <h1 className="text-3xl font-bold">{title}</h1>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm text-muted-foreground">
+          <h1 className="text-4xl leading-tight font-semibold tracking-tight">{title}</h1>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 font-mono text-xs text-muted-foreground">
             <div className="flex flex-wrap items-center gap-2">
               {series.map((s) => (
-                <Link key={s.seriesId} href={`/series/${s.slug}`}>
-                  <Badge variant="secondary">
-                    {s.name}
-                    {s.isCompleted && " (완결)"}
-                  </Badge>
+                <Link
+                  key={s.seriesId}
+                  href={`/series/${s.slug}`}
+                  className="rounded-full bg-primary/10 px-2.5 py-0.5 text-primary hover:bg-primary/20"
+                >
+                  {s.name}
+                  {s.isCompleted && " (완결)"}
                 </Link>
               ))}
             </div>
@@ -156,9 +148,12 @@ export function PostView({
         </header>
 
         {summary && (
-          <p className="mb-8 rounded-lg border-l-4 bg-muted/40 px-4 py-3 text-[0.95rem] leading-relaxed text-muted-foreground">
-            {summary}
-          </p>
+          <div className="mb-8 rounded-lg border bg-card px-4 py-3">
+            <span className="mb-1.5 inline-block rounded bg-primary/10 px-2 py-px font-mono text-[11px] font-bold tracking-wider text-primary">
+              SUMMARY
+            </span>
+            <p className="text-[0.95rem] leading-relaxed">{summary}</p>
+          </div>
         )}
 
         <div
@@ -183,7 +178,7 @@ export function PostView({
                 <div key={`post-${index}`} className="md-embed-card not-prose">
                   <Link
                     href={`/${part.card.slug}`}
-                    className="block rounded-lg border p-4 no-underline transition-colors hover:bg-accent/50"
+                    className="group block rounded-lg border p-4 no-underline transition-colors hover:bg-accent/50"
                   >
                     <PostCardContent title={part.card.title} summary={part.card.summary} />
                   </Link>
@@ -220,12 +215,14 @@ export function PostView({
               태그 ({tags.length})
             </button>
             {tagsOpen && (
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-2 font-mono text-xs">
                 {tags.map((tag) => (
-                  <Link key={tag.id} href={`/tag/${tag.slug}`}>
-                    <Badge variant="outline" className="hover:bg-accent">
-                      {tag.name}
-                    </Badge>
+                  <Link
+                    key={tag.id}
+                    href={`/tag/${tag.slug}`}
+                    className="rounded-full bg-primary/10 px-3 py-1 text-primary hover:bg-primary/20"
+                  >
+                    #{tag.name}
                   </Link>
                 ))}
               </div>
@@ -239,6 +236,14 @@ export function PostView({
           </section>
         )}
       </div>
+
+      {headingTree.length > 0 && (
+        <aside className="hidden w-56 shrink-0 lg:block">
+          <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pt-1">
+            <Toc tree={headingTree} onNavigate={onTocNavigate} />
+          </div>
+        </aside>
+      )}
     </div>
   );
 }

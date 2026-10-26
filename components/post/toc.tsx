@@ -28,7 +28,7 @@ export function Toc({ tree, onNavigate }: TocProps) {
   };
 
   const renderNodes = (nodes: HeadingNode[], depth: number) => (
-    <ul className={cn("space-y-0.5", depth > 0 && "ml-3 border-l pl-2")}>
+    <ul className={cn("space-y-0.5", depth === 0 ? "border-l pl-1" : "ml-3 border-l pl-2")}>
       {nodes.map((node) => {
         const isCollapsed = collapsed.has(node.id);
         return (
@@ -53,7 +53,7 @@ export function Toc({ tree, onNavigate }: TocProps) {
               <button
                 type="button"
                 onClick={() => onNavigate(node.id)}
-                className="min-w-0 flex-1 truncate rounded px-1 py-0.5 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="min-w-0 flex-1 truncate rounded px-1 py-0.5 text-left text-sm text-muted-foreground hover:text-primary"
                 title={node.text}
               >
                 {node.text}
@@ -68,7 +68,7 @@ export function Toc({ tree, onNavigate }: TocProps) {
 
   return (
     <nav aria-label="목차">
-      <p className="mb-2 px-1 text-xs font-semibold tracking-wide text-muted-foreground">목차</p>
+      <p className="mb-2 px-1 font-mono text-xs text-muted-foreground">{"// 목차"}</p>
       {renderNodes(tree, 0)}
     </nav>
   );

@@ -7,7 +7,10 @@ export default async function PostsPage() {
   const [posts, { timeZone }] = await Promise.all([listPublicPosts(), getSiteSettings()]);
   return (
     <div className="mx-auto w-full max-w-3xl px-4">
-      <h1 className="mb-6 text-2xl font-bold">글 목록</h1>
+      <p className="font-mono text-xs text-muted-foreground">
+        <span className="text-primary">$</span> ls -t posts/
+      </p>
+      <h1 className="mt-2 mb-6 text-3xl font-semibold tracking-tight">글 목록</h1>
       <PostList posts={posts} timeZone={timeZone} />
     </div>
   );
